@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-//import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient';
 
 const Tickets = ({ session }) => {
   const [tickets, setTickets] = useState([]);
@@ -15,7 +15,11 @@ const Tickets = ({ session }) => {
   const [asunto, setAsunto] = useState('');
   const [mensajeInicial, setMensajeInicial] = useState('');
 
-  const ADMIN_EMAILS = ['scannerstorresaguayo@gmail.com', 'felipe.acuna2@mail.udp.cl', 'stockcarscl@gmail.com'];
+  const ADMIN_EMAILS = [
+    'sebastianzunigavaldivia@gmail.com',
+    'oliver.zuniga@gmail.com',
+    'focaldevs@gmail.com'
+  ];
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
 
   useEffect(() => { fetchTickets(); }, [session]);

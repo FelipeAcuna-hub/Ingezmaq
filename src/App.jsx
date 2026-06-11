@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-//import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient';
 
-// Importación del componente Layout (El que contiene Sidebar y Header)
 import Layout from './components/Layout'; 
 
 // Importación de tus páginas
 import Login from './pages/Login';
+import RecuperarPassword from './pages/RecuperarPassword';
 import Dashboard from './pages/Dashboard';
 import Perfil from './pages/Perfil';
 import Creditos from './pages/Creditos';
@@ -18,39 +18,31 @@ import UploadFile from './pages/UploadFile';
 import Simulador from './pages/Simulador';
 import Clientes from './pages/Clientes';
 
-
 function App() {
-  // MODIFICADO: Forzamos sesión de desarrollo para saltarnos el Login y ver el Layout
-  const [session, setSession] = useState({ 
-    user: { 
-      email: 'felipe.acuna2@mail.udp.cl', // Te reconoce automáticamente como Admin
-      app_metadata: { role: 'admin' }
-    } 
-  });
+  // 🔌 CONEXIÓN REAL: Arrancamos con la sesión vacía (null) para que la busque en Supabase
+  const [session, setSession] = useState(null);
   
-  // MODIFICADO: Cambiado a false para que no se quede atrapado cargando
-  const [loading, setLoading] = useState(false);
+  // ACTIVADO: Volvemos a poner loading en true para que valide el token antes de dibujar las pantallas
+  const [loading, setLoading] = useState(true);
 
-  /*
   useEffect(() => {
-    // 1. Obtener sesión inicial al cargar la app
+    // 1. Obtener sesión inicial guardada en el navegador al cargar la app
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
 
-    // 2. Escuchar cambios en la autenticación (Login/Logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("Sesión actualizada. Rol:", session?.user?.app_metadata?.role);
-      setSession(session);
+    // 2. Escuchar cambios en tiempo real (Login, Logout, Cierre de Token)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      console.log("Estado de autenticación cambiado:", _event);
+      setSession(currentSession);
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
-  */
 
-  // Pantalla de carga mientras se verifica la sesión
+  // Pantalla de carga mientras se verifica la sesión con el servidor
   if (loading) {
     return (
       <div style={{ 
@@ -60,18 +52,20 @@ function App() {
         justifyContent: 'center', 
         alignItems: 'center',
         color: 'white',
-        fontFamily: 'sans-serif'
+        fontFamily: 'sans-serif',
+        fontWeight: 'bold',
+        letterSpacing: '1px'
       }}>
-        CARGANDO PORTAL...
+        CARGANDO PORTAL INGEZMAQ...
       </div>
     );
   }
 
   // --- LÓGICA DE ADMINISTRADOR UNIFICADA (LOS 3 CORREOS + ROL) ---
   const ADMIN_EMAILS = [
-    'scannerstorresaguayo@gmail.com',
-    'felipe.acuna2@mail.udp.cl',
-    'stockcarscl@gmail.com'
+    'sebastianzunigavaldivia@gmail.com',
+    'oliver.zuniga@gmail.com',
+    'focaldevs@gmail.com'
   ];
 
   const isAdmin = 
@@ -79,19 +73,23 @@ function App() {
     ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
 
   return (
-
     <Router>
       <Routes>
-        {/* RUTA PÚBLICA: Login */}
+        {/* RUTA PÚBLICA: Si no hay sesión muestra Login, si hay manda al Dashboard */}
         <Route 
           path="/login" 
           element={!session ? <Login /> : <Navigate to="/" />} 
         />
-
-        {/* Agregamos las rutas de recuperación aquí afuera */}
-      
+        <Route 
+          path="/recuperar-password" 
+          element={!session ? <RecuperarPassword /> : <Navigate to="/" />} 
+        />
+        <Route 
+          path="/RecuperarPassword" 
+          element={!session ? <RecuperarPassword /> : <Navigate to="/" />} 
+        />
         {/* --- GRUPO DE RUTAS PROTEGIDAS CON LAYOUT --- */}
-        {/* Si hay sesión, carga Layout. Si no, manda a Login */}
+        {/* Si hay sesión real, pasa. Si está en null, te bloquea y te manda al /login de cabeza */}
         <Route element={session ? <Layout session={session} /> : <Navigate to="/login" />}>
           
           <Route path="/" element={<Dashboard session={session} />} />

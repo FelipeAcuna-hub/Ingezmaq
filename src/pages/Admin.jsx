@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
 
 const checkIsWorkTime = () => {
   const now = new Date();
@@ -31,9 +32,9 @@ const Admin = ({ session }) => {
 
   // --- CONFIGURACIÓN DE LOS 3 ADMINISTRADORES ---
   const ADMIN_EMAILS = [
-    'scannerstorresaguayo@gmail.com',
-    'felipe.acuna2@mail.udp.cl',
-    'stockcarscl@gmail.com'
+    'sebastianzunigavaldivia@gmail.com',
+    'oliver.zuniga@gmail.com',
+    'focaldevs@gmail.com'
   ];
 
   const isAdmin =

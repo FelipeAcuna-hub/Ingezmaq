@@ -2,32 +2,36 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const Creditos = ({ session }) => {
-  const [customAmount, setCustomAmount] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // --- CONFIGURACIÓN WHATSAPP ---
-  const WHATSAPP_NUMBER = "56995161488"; // <-- TU NÚMERO
-
-  const handleWhatsAppBuy = (qty) => {
+  const handlePagarPaquete = (qty) => {
     const numQty = parseInt(qty);
     if (isNaN(numQty) || numQty <= 0) return;
-    
-    const amount = (numQty * 10000).toLocaleString('es-CL');
-    const message = encodeURIComponent(
-      `Hola! 👋 Soy ${session?.user?.email}, me gustaría comprar ${numQty} créditos por $${amount} CLP para mi cuenta.`
-    );
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, '_blank');
+
+    setLoading(true);
+    const totalCLP = numQty * 10000;
+
+    // Guardamos los datos localmente por control de flujo interno
+    localStorage.setItem('pending_credits', numQty);
+    localStorage.setItem('pending_amount', totalCLP);
+
+    // URL de redirección directa usando tu ID de cliente real (5397606411635255)
+    const urlCheckoutSandbox = `https://www.mercadopago.cl/checkout/v1/payment/redirect/?source=link&preference-id=anonymous&client_id=5397606411635255&title=Carga+de+${numQty}+Creditos+Ingezmaq&price=${totalCLP}&currency=CLP&external_reference=${session?.user?.id || 'invitado'}`;
+
+    // Abre la pasarela en una pestaña nueva para resguardar la app principal
+    setTimeout(() => {
+      window.open(urlCheckoutSandbox, '_blank');
+      setLoading(false);
+    }, 500);
   };
 
   const styles = {
-    mainContent: { flex: 1, padding: '30px', backgroundColor: '#f3f4f6', minHeight: '100vh' },
+    mainContent: { flex: 1, padding: '30px', backgroundColor: '#f3f4f6', minHeight: '100vh', fontFamily: 'sans-serif' },
     btnBack: { color: '#666', textDecoration: 'none', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', fontWeight: 'bold' },
-    grid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' },
+    grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '25px', marginTop: '20px' },
     card: { backgroundColor: 'white', padding: '40px 20px', textAlign: 'center', borderRadius: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', border: '1px solid #eee' },
-    price: { fontSize: '32px', fontWeight: 'bold', color: '#e11d48', marginBottom: '25px' },
-    btnComprar: { backgroundColor: '#000', color: 'white', border: 'none', padding: '12px 0', width: '100%', fontWeight: 'bold', cursor: 'pointer', textTransform: 'uppercase', fontSize: '12px' },
-    calculatorCard: { backgroundColor: 'white', marginTop: '40px', padding: '40px', borderRadius: '4px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', textAlign: 'center', borderTop: '4px solid #e11d48' },
-    inputAmount: { padding: '15px', fontSize: '18px', textAlign: 'center', border: '1px solid #ddd', borderRadius: '4px', width: '250px', marginBottom: '20px', outline: 'none' },
-    conversionText: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', fontSize: '40px', fontWeight: 'bold', color: '#333' }
+    price: { fontSize: '32px', fontWeight: 'bold', color: '#2563eb', marginBottom: '25px' },
+    btnComprar: { backgroundColor: '#1f2937', color: 'white', border: 'none', padding: '14px 0', width: '100%', fontWeight: 'bold', cursor: 'pointer', textTransform: 'uppercase', fontSize: '13px', borderRadius: '4px', transition: '0.2s' }
   };
 
   return (
@@ -36,50 +40,28 @@ const Creditos = ({ session }) => {
 
       <div style={{ marginBottom: '30px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 'bold' }}>CARGAR CRÉDITOS</h1>
-        <p style={{ color: '#666', fontSize: '14px' }}>Selecciona un paquete o ingresa una cantidad personalizada.</p>
+        <p style={{ color: '#666', fontSize: '14px' }}>Selecciona un paquete de créditos para tu cuenta de Ingezmaq.</p>
       </div>
 
-      {/* PAQUETES PREDEFINIDOS */}
+      {/* PAQUETES PREDEFINIDOS EXCLUSIVOS */}
       <div style={styles.grid}>
         {[10, 30, 50].map(qty => (
           <div key={qty} style={styles.card}>
-            <div style={{ fontWeight: 'bold', marginBottom: '15px' }}>{qty} CRÉDITOS</div>
-            <div style={styles.price}>${(qty * 10000).toLocaleString('es-CL')}</div>
-            <button onClick={() => handleWhatsAppBuy(qty)} style={styles.btnComprar}>COMPRAR AHORA</button>
+            <div style={{ fontWeight: 'bold', marginBottom: '15px', color: '#374151', letterSpacing: '0.5px' }}>
+              {qty} CRÉDITOS
+            </div>
+            <div style={styles.price}>
+              ${(qty * 10000).toLocaleString('es-CL')}
+            </div>
+            <button 
+              disabled={loading} 
+              onClick={() => handlePagarPaquete(qty)} 
+              style={styles.btnComprar}
+            >
+              {loading ? 'Conectando...' : 'Comprar Ahora'}
+            </button>
           </div>
         ))}
-      </div>
-
-      {/* CALCULADORA DE CRÉDITOS */}
-      <div style={styles.calculatorCard}>
-        <h3 style={{ fontSize: '12px', color: '#888', marginBottom: '20px', textTransform: 'uppercase' }}>Cantidad personalizada</h3>
-        <input
-          style={styles.inputAmount}
-          type="number"
-          placeholder="Ingresa créditos..."
-          value={customAmount}
-          onChange={(e) => setCustomAmount(e.target.value)}
-        />
-        
-        <div style={styles.conversionText}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '12px', color: '#999' }}>CRÉDITOS</div>
-            {customAmount || 0}
-          </div>
-          <div style={{ color: '#e11d48' }}>=</div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '12px', color: '#999' }}>PESOS CLP</div>
-            ${( (parseInt(customAmount) || 0) * 10000).toLocaleString('es-CL')}
-          </div>
-        </div>
-
-        <button 
-          style={{ ...styles.btnComprar, width: '300px', marginTop: '30px', backgroundColor: '#e11d48', height: '50px', fontSize: '16px' }} 
-          disabled={!customAmount || customAmount <= 0}
-          onClick={() => handleWhatsAppBuy(customAmount)}
-        >
-          CONTINUAR CON EL PAGO
-        </button>
       </div>
     </div>
   );

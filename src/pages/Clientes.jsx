@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-//import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient';
 
 const Clientes = ({ session }) => {
   const [clientes, setClientes] = useState([]);
@@ -61,14 +61,30 @@ const Clientes = ({ session }) => {
   };
 
   // --- LÓGICA DE FILTRADO Y BÚSQUEDA ---
+  // --- LÓGICA DE FILTRADO Y BÚSQUEDA CORREGIDA Y CORRIDA ---
   const clientesFiltrados = clientes.filter(c => {
-    const cumpleTab = tab === 'pendientes' ? c.is_approved !== true : c.is_approved === true;
+    // Forzamos a que si es null o undefined, sea tratado como un false real
+    const aprobado = c.is_approved === true;
+
+    // Evaluamos la pestaña según el booleano limpio
+    const cumpleTab = tab === 'pendientes' ? !aprobado : aprobado;
+    
+    // Si no hay texto en el buscador, pasa directo si cumple la pestaña
+    if (!searchTerm.trim()) return cumpleTab;
+
     const searchLower = searchTerm.toLowerCase();
+
+    // Evitamos caídas por campos nulls usando "|| ''"
+    const name = (c.full_name || '').toLowerCase();
+    const lastName = (c.apellido || '').toLowerCase();
+    const comp = (c.company || '').toLowerCase();
+    const mail = (c.email || '').toLowerCase();
+    
     const cumpleBusqueda = 
-      (c.full_name?.toLowerCase().includes(searchLower)) ||
-      (c.apellido?.toLowerCase().includes(searchLower)) ||
-      (c.company?.toLowerCase().includes(searchLower)) ||
-      (c.email?.toLowerCase().includes(searchLower));
+      name.includes(searchLower) ||
+      lastName.includes(searchLower) ||
+      comp.includes(searchLower) ||
+      mail.includes(searchLower);
     
     return cumpleTab && cumpleBusqueda;
   });

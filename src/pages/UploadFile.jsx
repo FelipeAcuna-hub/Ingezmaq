@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-//import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient';
 
 // --- 1. DEFINICIÓN DE SERVICIOS DINÁMICOS ---
 const SERVICIOS_CONFIG = {

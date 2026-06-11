@@ -11,9 +11,10 @@ const Archivos = ({ session }) => {
   const [statusFilter, setStatusFilter] = useState('todos');
 
   const ADMIN_EMAILS = [
-    'scannerstorresaguayo@gmail.com',
-    'felipe.acuna2@mail.udp.cl',
-    'stockcarscl@gmail.com'
+    'sebastianzunigavaldivia@gmail.com',
+    'oliver.zuniga@gmail.com',
+    'focaldevs@gmail.com',
+    'alientechchile@gmail.com'
   ];
 
   const isAdmin =

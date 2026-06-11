@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-//import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient';
 
 const Historial = ({ session }) => {
   const [movimientos, setMovimientos] = useState([]);
@@ -12,9 +12,9 @@ const Historial = ({ session }) => {
   const itemsPorPagina = 4;
 
   const ADMIN_EMAILS = [
-    'scannerstorresaguayo@gmail.com',
-    'felipe.acuna2@mail.udp.cl',
-    'stockcarscl@gmail.com'
+    'sebastianzunigavaldivia@gmail.com',
+    'oliver.zuniga@gmail.com',
+    'focaldevs@gmail.com'
   ];
 
   const isAdmin =
