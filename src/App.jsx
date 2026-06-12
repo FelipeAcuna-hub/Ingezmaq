@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 
-import Layout from './components/layout2'; 
+import Layout from './components/layout'; 
 
 // Importación de tus páginas
 import Login from './pages/Login';
