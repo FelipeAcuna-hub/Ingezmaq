@@ -31,7 +31,8 @@ const Login = () => {
           return;
         }
 
-        const { error } = await supabase.auth.signUp({
+        // 1. Crear el usuario en el sistema de autenticación de Supabase
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -43,8 +44,34 @@ const Login = () => {
             }
           }
         });
-        if (error) throw error;
+        
+        if (signUpError) throw signUpError;
+
+        // 2. 🚀 INSERCIÓN DIRECTA EN TABLA PROFILES: Asegura el guardado real de los campos
+        if (signUpData?.user) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: signUpData.user.id,
+                email: email.toLowerCase(),
+                full_name: nombre.trim(),
+                apellido: apellido.trim(),
+                company: compania.trim(),
+                phone: telefono.trim(),
+                credits: 0,
+                is_approved: false
+              }
+            ]);
+
+          if (profileError) {
+            console.error("Error al poblar la tabla profiles:", profileError.message);
+          }
+        }
+
         alert('Registro exitoso. Un administrador revisará tu solicitud y te notificará por email cuando tu acceso sea activado.');
+        setIsRegistering(false); // Cambia automáticamente a la pestaña de inicio de sesión
+        
       } else {
         const { data: { user }, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
         
@@ -121,12 +148,10 @@ const Login = () => {
     },
     passContainer: { position: 'relative', display: 'flex', alignItems: 'center' },
     eyeBtn: { position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '16px', display: 'flex', alignItems: 'center' },
-    
-    // 🔵 MODIFICADO: Botón principal de Acción en Azul Eléctrico Oscuro con Letras Blancas
     button: { 
       width: '100%', 
-      backgroundColor: '#2563eb', // Azul nítido de alto rendimiento
-      color: '#ffffff', // Letras blancas puras
+      backgroundColor: '#2563eb', 
+      color: '#ffffff', 
       padding: '14px', 
       border: 'none', 
       fontWeight: 'bold', 
@@ -136,12 +161,11 @@ const Login = () => {
       letterSpacing: '0.5px',
       textTransform: 'uppercase',
       fontSize: '13px',
-      boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)', // Sombra azul sutil
+      boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)', 
       transition: 'background-color 0.2s ease'
     },
-    
     toggleText: { textAlign: 'center', marginTop: '20px', fontSize: '13px', color: '#64748b' },
-    link: { color: '#60a5fa', cursor: 'pointer', fontWeight: 'bold', marginLeft: '5px', textDecoration: 'none' }, // Link secundario cambiado a azul claro
+    link: { color: '#60a5fa', cursor: 'pointer', fontWeight: 'bold', marginLeft: '5px', textDecoration: 'none' }, 
     forgotPass: { display: 'block', textAlign: 'right', marginTop: '8px', fontSize: '11px', color: '#64748b', textDecoration: 'none', transition: '0.3s' }
   };
 

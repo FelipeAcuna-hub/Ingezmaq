@@ -366,7 +366,7 @@ const Admin = ({ session }) => {
       {selectedUser && (
         <div style={styles.modalOverlay} onClick={() => setSelectedUser(null)}>
           <div style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ borderBottom: '2px solid #e11d48', paddingBottom: '10px', textTransform: 'uppercase' }}>Ficha del Distribuidor</h3>
+            <h3 style={{ borderBottom: '2px solidrgb(31, 41, 130)', paddingBottom: '10px', textTransform: 'uppercase' }}>Ficha del Distribuidor</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '20px' }}>
               <div>
                 <p style={{ fontSize: '10px', color: '#888', margin: 0, fontWeight: 'bold' }}>NOMBRE COMPLETO</p>
@@ -374,7 +374,7 @@ const Admin = ({ session }) => {
               </div>
               <div>
                 <p style={{ fontSize: '10px', color: '#888', margin: 0, fontWeight: 'bold' }}>CRÉDITOS DISPONIBLES</p>
-                <p style={{ fontSize: '14px', margin: '5px 0 15px 0', fontWeight: 'bold', color: '#e11d48', borderBottom: '1px solid #f0f0f0', paddingBottom: '5px' }}>{selectedUser.credits?.toLocaleString('es-CL')}</p>
+                <p style={{ fontSize: '14px', margin: '5px 0 15px 0', fontWeight: 'bold', color: '101470', borderBottom: '1px solid #f0f0f0', paddingBottom: '5px' }}>{selectedUser.credits?.toLocaleString('es-CL')}</p>
               </div>
             </div>
             <h4 style={{ marginTop: '25px', fontSize: '12px', borderBottom: '1px solid #000', paddingBottom: '5px', textTransform: 'uppercase' }}>Historial de Movimientos</h4>
@@ -398,7 +398,7 @@ const Admin = ({ session }) => {
                 </tbody>
               </table>
             </div>
-            <button onClick={() => setSelectedUser(null)} style={{ ...styles.btnAction, width: '100%', padding: '14px', marginTop: '25px', backgroundColor: '#e11d48', borderRadius: '4px' }}>CERRAR</button>
+            <button onClick={() => setSelectedUser(null)} style={{ ...styles.btnAction, width: '100%', padding: '14px', marginTop: '25px', backgroundColor: '223AB5', borderRadius: '4px' }}>CERRAR</button>
           </div>
         </div>
       )}

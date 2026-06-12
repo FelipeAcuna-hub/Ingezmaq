@@ -1,0 +1,76 @@
+<footer class="p-12 border-t border-gray-900 bg-black mt-24 text-gray-400 font-mono text-xs w-full">
+    <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10 items-start">
+        
+        <div class="space-y-3">
+            <div class="uppercase tracking-widest font-black text-white text-sm">
+                Torres Aguayo <span class="text-red-500 font-light">Sistemas</span>
+            </div>
+            <p class="text-gray-600 font-sans text-xs leading-relaxed max-w-xs">
+                Ingeniería, soluciones electrónicas avanzadas y distribución de componentes técnicos automotrices de alta precisión.
+            </p>
+        </div>
+
+        <div class="space-y-3">
+            <div class="text-white font-bold uppercase tracking-wider text-[11px] text-red-500">Contacto Técnico</div>
+            <ul class="space-y-2 text-gray-500">
+                <li class="flex items-center gap-2">
+                    <span>📞</span> 
+                    <a href="https://wa.me/56984996539" target="_blank" class="hover:text-white transition">+56 9 8499 6539 (WhatsApp)</a>
+                </li>
+                <li class="flex items-center gap-2">
+                    <span>✉️</span> 
+                    <a href="mailto:scannerstorresaguayo@gmail.com" class="hover:text-white transition">scannerstorresaguayo@gmail.com</a>
+                </li>
+                <li class="flex items-center gap-2 font-sans text-[11px]">
+                    <span>📍</span> Chillán, Chile — Despacho a Domicilio
+                </li>
+            </ul>
+        </div>
+
+        <div class="space-y-3 md:text-right">
+            <div class="text-white font-bold uppercase tracking-wider text-[11px]">Plataforma</div>
+            <div class="flex flex-col md:items-end space-y-2 text-gray-500">
+                <a href="index.html" class="hover:text-red-500 transition uppercase">Inicio</a>
+                <a href="catalogo.html" class="hover:text-red-500 transition uppercase">Catálogo</a>
+                <a href="admin.html" id="link-footer-admin" class="hover:text-red-500 transition uppercase text-red-600/80 hidden">Panel Admin 🔑</a>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="max-w-6xl mx-auto border-t border-gray-950 mt-10 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-gray-600 text-[11px]">
+        <div>
+            © 2026 TORRES AGUAYO WEB v1.5 — TODOS LOS DERECHOS RESERVADOS
+        </div>
+        <div class="font-sans text-[10px] tracking-wide text-gray-700">
+            DESARROLLADO POR <a href="https://focaldev.cl" target="_blank" class="font-bold text-red-500 hover:text-red-600 transition">FOCALDEV</a>
+        </div>
+    </div>
+
+    <script>
+        (async function verificarVisibilidadAdminFooter() {
+            try {
+                // Esperamos un milisegundo por si la librería de Supabase se está inicializando en el documento principal
+                setTimeout(async () => {
+                    if (typeof supabase !== 'undefined' && typeof CONFIG !== 'undefined') {
+                        const clientFooter = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+                        const { data: { session } } = await clientFooter.auth.getSession();
+                        
+                        // Lista de administradores autorizados (usa los mismos que en tu admin.html)
+                        const admins = ['torresaguayo142@gmail.com']; 
+
+                        if (session && session.user && session.user.email) {
+                            const correoActual = session.user.email.toLowerCase();
+                            if (admins.includes(correoActual)) {
+                                // Si es admin, le quitamos la clase 'hidden' y el enlace aparece mágicamente
+                                document.getElementById('link-footer-admin').classList.remove('hidden');
+                            }
+                        }
+                    }
+                }, 150);
+            } catch (e) {
+                console.error("Error evaluando roles en footer:", e);
+            }
+        })();
+    </script>
+</footer>21

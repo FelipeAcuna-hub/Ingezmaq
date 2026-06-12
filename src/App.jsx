@@ -88,9 +88,10 @@ function App() {
           path="/RecuperarPassword" 
           element={!session ? <RecuperarPassword /> : <Navigate to="/" />} 
         />
+        
         {/* --- GRUPO DE RUTAS PROTEGIDAS CON LAYOUT --- */}
-        {/* Si hay sesión real, pasa. Si está en null, te bloquea y te manda al /login de cabeza */}
-        <Route element={session ? <Layout session={session} /> : <Navigate to="/login" />}>
+        {/* 🛡️ BLINDAJE: Verificamos de forma estricta que exista session y session.user para renderizar el Layout */}
+        <Route element={(session && session.user) ? <Layout session={session} /> : <Navigate to="/login" />}>
           
           <Route path="/" element={<Dashboard session={session} />} />
           <Route path="/perfil" element={<Perfil session={session} />} />
