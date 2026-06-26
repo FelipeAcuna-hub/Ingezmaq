@@ -32,13 +32,13 @@ const Simulador = () => {
       { id: 'restauracion_orig', name: 'RESTAURACIÓN ORIG', price: 6 }
     ],
     'ANULACIONES EURO (CAMIONES)': [
-    { id: 'truck_dpf_egr', name: 'DPF OFF + EGR OFF', price: 12 },
-    { id: 'truck_adblue_full', name: 'ADBLUE + DPF & EGR OFF', price: 16 },
-    { id: 'truck_egr_only', name: 'EGR OFF', price: 8 }, //egr only
-    { id: 'truck_adbue_only', name: 'ADBLUE OFF', price: 20 },  //adblue solo camiones
-    { id: 'truck_dpf_only', name: 'DPF OFF', price: 12 }, //dpf solo camiones
-    { id: 'truck_cummins_emissions', name: 'CUMMINS EMISSIONS', price: 35 }
-  ],
+      { id: 'truck_dpf_egr', name: 'DPF OFF + EGR OFF', price: 12 },
+      { id: 'truck_adblue_full', name: 'ADBLUE + DPF & EGR OFF', price: 16 },
+      { id: 'truck_egr_only', name: 'EGR OFF', price: 8 }, 
+      { id: 'truck_adbue_only', name: 'ADBLUE OFF', price: 20 },  
+      { id: 'truck_dpf_only', name: 'DPF OFF', price: 12 }, 
+      { id: 'truck_cummins_emissions', name: 'CUMMINS EMISSIONS', price: 35 }
+    ],
     'DESACTIVACIONES': [
       { id: 'dtc', name: 'DTC OFF', price: 3 },
       { id: 'lambda', name: 'LAMBDA OFF', price: 6 },
@@ -59,10 +59,11 @@ const Simulador = () => {
     grid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '40px' },
     columnTitle: { fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' },
     card: { backgroundColor: 'white', padding: '15px 20px', borderRadius: '4px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', border: '1px solid #ddd', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', transition: '0.3s' },
-    cardSelected: { borderColor: '#e11d48', backgroundColor: '#fff5f6', borderLeft: '5px solid #e11d48' },
-    priceBadge: { backgroundColor: '#e11d48', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '14px' },
+    // 🔵 MODIFICADO: Borde y fondo cambiados a Azul Eléctrico e Ingezmaq Premium
+    cardSelected: { borderColor: '#2563eb', backgroundColor: '#eff6ff', borderLeft: '5px solid #2563eb' },
+    priceBadge: { backgroundColor: '#2563eb', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '14px' },
     totalBox: { backgroundColor: 'black', color: 'white', padding: '30px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' },
-    btnCargar: { backgroundColor: '#b91c1c', color: 'white', padding: '15px 40px', border: 'none', borderRadius: '50px', fontWeight: 'bold', fontSize: '18px', cursor: 'pointer', alignSelf: 'flex-end', marginTop: '40px' },
+    btnCargar: { backgroundColor: '#2563eb', color: 'white', padding: '15px 40px', border: 'none', borderRadius: '50px', fontWeight: 'bold', fontSize: '18px', cursor: 'pointer', alignSelf: 'flex-end', marginTop: '40px' },
     infoBox: { backgroundColor: '#fef9c3', padding: '20px', borderRadius: '4px', border: '1px solid #fde047', color: '#854d0e', fontSize: '13px', lineHeight: '1.5' }
   };
 
@@ -121,7 +122,8 @@ const Simulador = () => {
           
           <div style={styles.totalBox}>
             <span style={{ fontSize: '32px', fontWeight: 'bold' }}>Créditos</span>
-            <span style={{ fontSize: '48px', fontWeight: 'bold', backgroundColor: '#b91c1c', padding: '0 20px', borderRadius: '8px' }}>
+            {/* 🔵 MODIFICADO: Badge del precio total cambiado de rojo oscuro a Azul Eléctrico */}
+            <span style={{ fontSize: '48px', fontWeight: 'bold', backgroundColor: '#2563eb', padding: '0 20px', borderRadius: '8px' }}>
               {totalPrice}
             </span>
           </div>

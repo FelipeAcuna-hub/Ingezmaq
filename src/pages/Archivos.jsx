@@ -224,7 +224,7 @@ const Archivos = ({ session }) => {
           <div style="font-family: 'Helvetica', Arial, sans-serif; background-color: #f9f9f9; padding: 40px 0;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
               <div style="background-color: #000000; padding: 20px; text-align: center;">
-                <h1 style="color: #e11d48; margin: 0; font-size: 24px; letter-spacing: 2px;">TORRES AGUAYO MMS</h1>
+                <h1 style="color: #2563eb; margin: 0; font-size: 24px; letter-spacing: 2px;">INGEZMAQ SYSTEM</h1>
               </div>
               <div style="padding: 30px; line-height: 1.6; color: #333;">
                 <h2 style="color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px;">Actualización de Requerimiento</h2>
@@ -235,7 +235,7 @@ const Archivos = ({ session }) => {
                 </div>
                 <p>${nuevoEstado === 'completado' ? 'Ya puedes descargar tu archivo modificado desde el portal oficial.' : 'Nuestro equipo técnico ya está trabajando en tu solicitud.'}</p>
                 <div style="text-align: center; margin-top: 30px;">
-                  <a href="https://torresaguayomms.cl/archivos" style="background-color: #e11d48; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">IR AL PORTAL</a>
+                  <a href="https://chiptuning.cl/archivos" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">IR AL PORTAL</a>
                 </div>
               </div>
             </div>
@@ -266,18 +266,18 @@ const Archivos = ({ session }) => {
     statusSelector: { padding: '6px 12px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '12px', outline: 'none', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 'bold', color: '#333', marginRight: '10px' },
     modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' },
     modalContent: { backgroundColor: 'white', width: '100%', maxWidth: '500px', borderRadius: '4px', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' },
-    modalHeader: { backgroundColor: '#000', color: '#e11d48', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e11d48' },
+    modalHeader: { backgroundColor: '#000', color: '#2563eb', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #2563eb' },
     modalBody: { padding: '25px', maxHeight: '75vh', overflowY: 'auto' },
     infoTable: { width: '100%', borderCollapse: 'collapse', marginBottom: '20px' },
     infoLabel: { padding: '8px 0', fontWeight: 'bold', fontSize: '11px', color: '#000', borderBottom: '1px solid #eee', textTransform: 'uppercase', width: '40%' },
     infoValue: { padding: '8px 0', fontSize: '12px', color: '#444', borderBottom: '1px solid #eee' },
     pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '30px', paddingBottom: '20px' },
-    pageBtn: (active) => ({ padding: '8px 16px', cursor: 'pointer', backgroundColor: active ? '#e11d48' : 'white', color: active ? 'white' : '#666', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }),
+    pageBtn: (active) => ({ padding: '8px 16px', cursor: 'pointer', backgroundColor: active ? '#2563eb' : 'white', color: active ? 'white' : '#666', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }),
     btnDownload: { border: 'none', fontSize: '9px', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'none', textAlign: 'center', color: 'white', display: 'block', width: '100%' },
     btnCancel: {
       backgroundColor: '#fff',
-      color: '#e11d48',
-      border: '1px solid #e11d48',
+      color: '#2563eb',
+      border: '1px solid #2563eb',
       padding: '6px',
       fontSize: '9px',
       fontWeight: 'bold',
@@ -294,7 +294,7 @@ const Archivos = ({ session }) => {
     if (e === 'completado') return '#22c55e';
     if (e === 'pendiente') return '#f59e0b';
     if (e === 'en revision') return '#3b82f6';
-    return '#e11d48';
+    return '#2563eb';
   };
 
   const filteredArchivos = archivos.filter(a => {
@@ -312,7 +312,7 @@ const Archivos = ({ session }) => {
     <div style={styles.mainContent}>
       <div style={styles.tableCard}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ backgroundColor: '#e11d48', color: 'white', padding: '5px 12px', fontSize: '10px', fontWeight: 'bold' }}>
+          <div style={{ backgroundColor: '#2563eb', color: 'white', padding: '5px 12px', fontSize: '10px', fontWeight: 'bold' }}>
             {isAdmin ? "MODO ADMINISTRADOR" : "PORTAL OFICIAL"}
           </div>
 
@@ -351,11 +351,11 @@ const Archivos = ({ session }) => {
               {archivosPaginados.map((archivo) => (
                 <tr key={archivo.id}>
                   <td style={styles.td}>
-                    <div style={{ fontWeight: 'bold', color: '#e11d48', fontSize: '14px' }}>#{archivo.numero_orden || '---'}</div>
+                    <div style={{ fontWeight: 'bold', color: '#2563eb', fontSize: '14px' }}>#{archivo.numero_orden || '---'}</div>
                     <div style={{ fontSize: '10px', color: '#999' }}>{new Date(archivo.created_at).toLocaleDateString('es-CL')}</div>
 
                   </td>
-                  {isAdmin && <td style={{ ...styles.td, fontWeight: 'bold', color: '#e11d48' }}>{archivo.profiles?.company || 'PARTICULAR'}</td>}
+                  {isAdmin && <td style={{ ...styles.td, fontWeight: 'bold', color: '#2563eb' }}>{archivo.profiles?.company || 'PARTICULAR'}</td>}
                   {isAdmin && (
                     <td style={{ ...styles.td, fontSize: '11px', color: '#555' }}>
                       {archivo.profiles?.email || '---'}
@@ -426,7 +426,7 @@ const Archivos = ({ session }) => {
                         <span style={{ color: '#aaa', fontStyle: 'italic' }}>No se han subido intrucciones...</span>
                       )}
                       {isAdmin && (
-                        <button onClick={() => handleGuardarNota(archivo.id, archivo.notas_instalacion)} style={{ display: 'block', marginTop: '8px', backgroundColor: '#e11d48', color: 'white', border: 'none', padding: '3px 7px', fontSize: '9px', fontWeight: 'bold', borderRadius: '2px', cursor: 'pointer' }}>
+                        <button onClick={() => handleGuardarNota(archivo.id, archivo.notas_instalacion)} style={{ display: 'block', marginTop: '8px', backgroundColor: '#2563eb', color: 'white', border: 'none', padding: '3px 7px', fontSize: '9px', fontWeight: 'bold', borderRadius: '2px', cursor: 'pointer' }}>
                           {archivo.notas_instalacion ? 'EDITAR MENSAJE' : '+ ESCRIBIR NOTA'}
                         </button>
                       )}
@@ -438,8 +438,8 @@ const Archivos = ({ session }) => {
                         onClick={() => handleCancelarSolicitud(archivo)}
                         style={{
                           backgroundColor: 'white',
-                          color: '#e11d48',
-                          border: '1px solid #e11d48',
+                          color: '#2563eb',
+                          border: '1px solid #2563eb',
                           padding: '6px 10px',
                           fontSize: '10px',
                           fontWeight: 'bold',
@@ -496,8 +496,8 @@ const Archivos = ({ session }) => {
                   ))}
                 </tbody>
               </table>
-              <div style={{ marginTop: '20px', backgroundColor: '#f9f9f9', padding: '15px', borderLeft: '4px solid #e11d48' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '10px', color: '#e11d48' }}>COMMENTS:</div>
+              <div style={{ marginTop: '20px', backgroundColor: '#f9f9f9', padding: '15px', borderLeft: '4px solid #2563eb' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '10px', color: '#2563eb' }}>COMMENTS:</div>
                 <p style={{ margin: 0, fontSize: '12px', fontStyle: 'italic' }}>{archivoDetalle.detalles_tecnicos?.comentarios || 'No comments provided.'}</p>
               </div>
             </div>

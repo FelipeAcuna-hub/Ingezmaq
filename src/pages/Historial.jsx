@@ -22,42 +22,36 @@ const Historial = ({ session }) => {
     ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
 
   // --- FUNCIÓN DE CARGA DE DATOS COMPLETA ---
-  // CAMBIO: Dependencias optimizadas para evitar re-creaciones de la función
+  // CAMBIO: Dependencias optimizadas para evitar re-creaciones de la función// --- FUNCIÓN DE CARGA DE DATOS COMPLETA REESTRUCTURADA ---
   const fetchDatos = useCallback(async () => {
     try {
       setLoading(true);
       if (!session?.user?.id) return;
 
-      console.log("Cargando historial desde la base de datos...");
+      console.log("Cargando historial unificado desde movimientos...");
 
-      // 1. CARGAR RECARGAS Y RETIROS (Tabla: movimientos)
-      let queryMovs = supabase
+      // 1. CARGAMOS TODO DESDE LA ÚNICA TABLA REAL: movimientos
+      let query = supabase
         .from('movimientos')
         .select('*, profiles:user_id(company)')
         .order('created_at', { ascending: false });
 
       if (!isAdmin) {
-        queryMovs = queryMovs.eq('user_id', session?.user?.id);
+        query = query.eq('user_id', session?.user?.id);
       }
 
-      const { data: dataMovs, error: errorMovs } = await queryMovs;
+      const { data: todosLosMovimientos, error: errorMovs } = await query;
       if (errorMovs) throw errorMovs;
 
-      // 2. CARGAR CANJES (Tabla: historial_movimientos)
-      let queryCanjes = supabase
-        .from('historial_movimientos')
-        .select('*, profiles:perfil_id(company)')
-        .order('fecha', { ascending: false });
+      // 2. SEPARAMOS EN TU ESTADO LOCAL SEGÚN EL TIPO DE OPERACIÓN
+      // Las recargas/abonos van a la Sección 1
+      const recargas = todosLosMovimientos.filter(m => m.tipo === 'carga');
+      
+      // Los canjes/descuentos van a la Sección 2 (Soportando 'canje' o 'gasto')
+      const consumos = todosLosMovimientos.filter(m => m.tipo === 'canje' || m.tipo === 'gasto');
 
-      if (!isAdmin) {
-        queryCanjes = queryCanjes.eq('perfil_id', session?.user?.id);
-      }
-
-      const { data: dataCanjes, error: errorCanjes } = await queryCanjes;
-      if (errorCanjes) throw errorCanjes;
-
-      setMovimientos(dataMovs || []);
-      setCanjes(dataCanjes || []);
+      setMovimientos(recargas);
+      setCanjes(consumos);
 
     } catch (error) {
       console.error("Error cargando historial:", error.message);

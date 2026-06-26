@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 // --- 1. DEFINICIÓN DE SERVICIOS DINÁMICOS ---
 const SERVICIOS_CONFIG = {
   'REPRO GASOLINA': [
-    { id: 'b_s1', name: 'STAGE 1 (INCLUYE VMAX OFF)', price: 14 },
+    { id: 'b_s1', name: 'STAGE 1 + VMAX', price: 13 },
     { id: 'b_s1pb', name: 'STAGE 1 + POPS AND BANGS', price: 18 },
     { id: 'b_s2', name: 'STAGE 2 (REQUIERE MODS)', price: 16 },
     { id: 'b_s2pb', name: 'STAGE 2 + POPS AND BANGS', price: 22 },
@@ -13,16 +13,18 @@ const SERVICIOS_CONFIG = {
   ],
   'REPRO DIÉSEL': [
     { id: 'd_s1', name: 'STAGE 1', price: 14 },
-    { id: 'd_s1egr', name: 'STAGE 1 + EGR OFF', price: 15 },
-    { id: 'd_s1dpf', name: 'STAGE 1 + DPF OFF + EGR OFF', price: 16 },
-    { id: 'd_s1full', name: 'STAGE 1 + DPF + EGR OFF + ADBLUE OFF', price: 19 },
+    { id: 'd_s1egr', name: 'STAGE 1 + EGR OFF', price: 13 },
+    { id: 'd_s1dpf', name: 'STAGE 1 + DPF OFF + EGR OFF', price: 14 },
+    { id: 'd_s1full', name: 'STAGE 1 + DPF + EGR OFF + ADBLUE OFF', price: 15 },
     { id: 'd_s2', name: 'STAGE 2 (POTENCIA + MODS)', price: 16 }
   ],
   'ANULACIONES EURO': [
-    { id: 'dpf_egr', name: 'DPF OFF + EGR OFF', price: 6 },
-    { id: 'adblue_full', name: 'ADBLUE + DPF & EGR OFF', price: 8 },
-    { id: 'egr_only', name: 'EGR OFF', price: 4 },
-    { id: 'adblue_only', name: 'ADBLUE OFF', price: 6 },
+    { id: 'dpf_only', name: 'DPF OFF', price: 7 },
+    { id: 'dpf_egr', name: 'DPF OFF + EGR OFF', price: 9 },
+    { id: 'adblue_full', name: 'ADBLUE + DPF & EGR OFF', price: 11 },
+    { id: 'egr_only', name: 'EGR OFF', price: 7 },
+    { id: 'dpf_adblue', name: 'DPF + ADBLUE', price: 9 },
+    { id: 'adblue_only', name: 'ADBLUE OFF', price: 7 },
     { id: 'restauracion_orig', name: 'RESTAURACION ORI', price: 6 }
   ],
   'ANULACIONES EURO (CAMIONES)': [
@@ -157,7 +159,6 @@ const UploadFile = ({ session }) => {
         patente: formData.patente,
         marca_modelo: `${formData.marca} ${formData.modelo}`.trim(),
         estado: 'pendiente',
-        file_url: urlMapa,
         file_url_id: urlId,
         file_url_mapa: urlMapa,
         file_url_password: urlPass,
@@ -170,58 +171,56 @@ const UploadFile = ({ session }) => {
 
       if (dbError) throw dbError;
 
-      // --- PARTE DEL ENVÍO DE CORREO EN UPLOADFILE.JSX ---
-    // --- NOTIFICACIÓN DE NUEVO ARCHIVO A ADMINISTRADORES ---
-    try {
-      const archivosLista = [];
-      if (fileId) archivosLista.push("ID (Export Console)");
-      if (fileMapa) archivosLista.push("MAPA");
-      if (filePass) archivosLista.push("PASSWORD");
+      // --- NOTIFICACIÓN DE NUEVO ARCHIVO A ADMINISTRADORES ---
+      try {
+        const archivosLista = [];
+        if (fileId) archivosLista.push("ID (Export Console)");
+        if (fileMapa) archivosLista.push("MAPA");
+        if (filePass) archivosLista.push("PASSWORD");
 
-      const emailHtmlNuevo = `
-        <div style="font-family: 'Helvetica', Arial, sans-serif; background-color: #f9f9f9; padding: 40px 0;">
-          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-            <div style="background-color: #000000; padding: 20px; text-align: center;">
-              <h1 style="color: #e11d48; margin: 0; font-size: 24px; letter-spacing: 2px;">NUEVA SOLICITUD</h1>
-            </div>
-            <div style="padding: 30px; line-height: 1.6; color: #333;">
-              <h2 style="color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px;">Datos del Requerimiento</h2>
-              <p>Se ha recibido un nuevo archivo para procesar:</p>
-              
-              <table style="width: 100%; border-collapse: collapse;">
-                <tr><td style="padding: 5px 0;"><strong>Cliente:</strong></td><td>${session.user.email}</td></tr>
-                <tr><td style="padding: 5px 0;"><strong>Patente:</strong></td><td>${formData.patente}</td></tr>
-                <tr><td style="padding: 5px 0;"><strong>Vehículo:</strong></td><td>${formData.marca} ${formData.modelo}</td></tr>
-                <tr><td style="padding: 5px 0;"><strong>Servicio:</strong></td><td>${servicioSel?.name || 'No especificado'}</td></tr>
-                <tr><td style="padding: 5px 0;"><strong>Archivos:</strong></td><td>${archivosLista.join(', ')}</td></tr>
-              </table>
-
-              <div style="background-color: #fff5f6; padding: 15px; border-left: 4px solid #e11d48; margin: 20px 0;">
-                <strong>Comentarios:</strong><br/>
-                ${formData.comentarios || 'Sin comentarios adicionales.'}
+        const emailHtmlNuevo = `
+          <div style="font-family: 'Helvetica', Arial, sans-serif; background-color: #f9f9f9; padding: 40px 0;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+              <div style="background-color: #000000; padding: 20px; text-align: center;">
+                <h1 style="color: #2563eb; margin: 0; font-size: 24px; letter-spacing: 2px;">NUEVA SOLICITUD</h1>
               </div>
+              <div style="padding: 30px; line-height: 1.6; color: #333;">
+                <h2 style="color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px;">Datos del Requerimiento</h2>
+                <p>Se ha recibido un nuevo archivo para procesar:</p>
+                
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr><td style="padding: 5px 0;"><strong>Cliente:</strong></td><td>${session.user.email}</td></tr>
+                  <tr><td style="padding: 5px 0;"><strong>Patente:</strong></td><td>${formData.patente}</td></tr>
+                  <tr><td style="padding: 5px 0;"><strong>Vehículo:</strong></td><td>${formData.marca} ${formData.modelo}</td></tr>
+                  <tr><td style="padding: 5px 0;"><strong>Servicio:</strong></td><td>${servicioSel?.name || 'No especificado'}</td></tr>
+                  <tr><td style="padding: 5px 0;"><strong>Archivos:</strong></td><td>${archivosLista.join(', ')}</td></tr>
+                </table>
 
-              <div style="text-align: center; margin-top: 30px;">
-                <a href="https://torresaguayomms.cl/archivos" style="background-color: #e11d48; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">VER EN EL PORTAL DE ADMIN</a>
+                <div style="background-color: #eff6ff; padding: 15px; border-left: 4px solid #2563eb; margin: 20px 0;">
+                  <strong>Comentarios:</strong><br/>
+                  ${formData.comentarios || 'Sin comentarios adicionales.'}
+                </div>
+
+                <div style="text-align: center; margin-top: 30px;">
+                  <a href="https://chiptuning.cl/archivos" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">VER EN EL PORTAL DE ADMIN</a>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      `;
+        `;
 
-      await supabase.functions.invoke('swift-function', {
-        body: { 
-          // Importante: Sin espacios entre las comas de los correos
-          to: 'stockcarscl@gmail.com',
-          subject: `🚀 ARCHIVO: ${formData.patente} - ${formData.marca}`, 
-          html: emailHtmlNuevo 
-        },
-      });
+        await supabase.functions.invoke('swift-function', {
+          body: { 
+            to: 'focaldevs@gmail.com',
+            subject: `🚀 ARCHIVO: ${formData.patente} - ${formData.marca}`, 
+            html: emailHtmlNuevo 
+          },
+        });
 
-      console.log("Notificación de nuevo archivo enviada con éxito");
-    } catch (mailErr) {
-      console.error("Error enviando notificación inicial:", mailErr);
-    }
+        console.log("Notificación de nuevo archivo enviada con éxito");
+      } catch (mailErr) {
+        console.error("Error enviando notificación inicial:", mailErr);
+      }
 
       alert(`✅ Archivos enviados con éxito.`);
       navigate('/archivos');
@@ -242,19 +241,19 @@ const UploadFile = ({ session }) => {
     input: { width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' },
     gridFiles: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '25px' },
     fileBox: (hasFile, isRequired) => ({
-      border: hasFile ? '2px solid #22c55e' : (isRequired ? '2px dashed #e11d48' : '2px dashed #ddd'),
+      border: hasFile ? '2px solid #22c55e' : (isRequired ? '2px dashed #2563eb' : '2px dashed #ddd'),
       padding: '20px', textAlign: 'center', borderRadius: '4px',
-      backgroundColor: hasFile ? '#f0fdf4' : (isRequired ? '#fff5f6' : '#f9f9f9'), cursor: 'pointer', transition: '0.3s'
+      backgroundColor: hasFile ? '#f0fdf4' : (isRequired ? '#eff6ff' : '#f9f9f9'), cursor: 'pointer', transition: '0.3s'
     }),
-    button: { backgroundColor: '#e11d48', color: 'white', border: 'none', padding: '15px 40px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '2px', textTransform: 'uppercase', fontSize: '13px' },
+    button: { backgroundColor: '#2563eb', color: 'white', border: 'none', padding: '15px 40px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '2px', textTransform: 'uppercase', fontSize: '13px' },
     btnBack: { color: '#666', textDecoration: 'none', fontSize: '13px', marginLeft: '30px', marginTop: '20px', display: 'inline-block', fontWeight: 'bold' },
     selectorGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', margin: '20px 0' },
     serviceItem: (isSelected) => ({
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '12px', marginBottom: '8px', border: isSelected ? '2px solid #e11d48' : '1px solid #eee',
-      borderRadius: '4px', cursor: 'pointer', backgroundColor: isSelected ? '#fff5f6' : 'white'
+      padding: '12px', marginBottom: '8px', border: isSelected ? '2px solid #2563eb' : '1px solid #eee',
+      borderRadius: '4px', cursor: 'pointer', backgroundColor: isSelected ? '#eff6ff' : 'white'
     }),
-    badgePrecio: { backgroundColor: '#e11d48', color: 'white', padding: '2px 6px', borderRadius: '3px', fontSize: '11px', fontWeight: 'bold' },
+    badgePrecio: { backgroundColor: '#2563eb', color: 'white', padding: '2px 6px', borderRadius: '3px', fontSize: '11px', fontWeight: 'bold' },
     resumenBox: {
       backgroundColor: '#000', color: 'white', padding: '30px', borderRadius: '4px',
       textAlign: 'center', marginTop: '30px', display: 'flex', justifyContent: 'space-around', alignItems: 'center'
@@ -273,7 +272,7 @@ const UploadFile = ({ session }) => {
           <div>
             <label style={styles.label}>Patente (Obligatorio)</label>
             <input
-              style={{ ...styles.input, borderColor: formData.patente ? '#ccc' : '#e11d48' }}
+              style={{ ...styles.input, borderColor: formData.patente ? '#ccc' : '#2563eb' }}
               placeholder="AACC82"
               value={formData.patente}
               onChange={handlePatenteChange}
@@ -351,14 +350,14 @@ const UploadFile = ({ session }) => {
           <div style={styles.fileBox(!!fileId, true)} onClick={() => document.getElementById('fileId').click()}>
             <input type="file" id="fileId" style={{ display: 'none' }} onChange={(e) => setFileId(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🆔</div>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileId ? '#22c55e' : '#e11d48' }}>{fileId ? 'ID LISTO' : 'SUBIR ID (OBLIGATORIO)'}</div>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileId ? '#22c55e' : '#2563eb' }}>{fileId ? 'ID LISTO' : 'SUBIR ID (OBLIGATORIO)'}</div>
             <div style={{ fontSize: '10px', color: '#888' }}>{fileId ? fileId.name : 'Export Console requerido'}</div>
           </div>
 
           <div style={styles.fileBox(!!fileMapa, true)} onClick={() => document.getElementById('fileMapa').click()}>
             <input type="file" id="fileMapa" style={{ display: 'none' }} onChange={(e) => setFileMapa(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🗺️</div>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileMapa ? '#22c55e' : '#e11d48' }}>{fileMapa ? 'MAPA LISTO' : 'SUBIR MAPA (OBLIGATORIO)'}</div>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileMapa ? '#22c55e' : '#2563eb' }}>{fileMapa ? 'MAPA LISTO' : 'SUBIR MAPA (OBLIGATORIO)'}</div>
             <div style={{ fontSize: '10px', color: '#888' }}>{fileMapa ? fileMapa.name : 'Lectura de mapa requerida'}</div>
           </div>
 
@@ -381,7 +380,7 @@ const UploadFile = ({ session }) => {
               ...styles.button,
               opacity: (loading || !isFormValid) ? 0.4 : 1,
               cursor: (loading || !isFormValid) ? 'not-allowed' : 'pointer',
-              backgroundColor: !isFormValid && !loading ? '#666' : '#e11d48'
+              backgroundColor: !isFormValid && !loading ? '#666' : '#2563eb'
             }}
             disabled={loading || !isFormValid}
           >

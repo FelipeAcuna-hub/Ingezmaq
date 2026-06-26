@@ -164,7 +164,7 @@ const Clientes = ({ session }) => {
               <tr key={c.id}>
                 <td style={styles.td}>
                   <div style={{ fontWeight: 'bold' }}>{c.full_name} {c.apellido}</div>
-                  <div style={{ fontSize: '11px', color: '#e11d48' }}>{c.company || 'PARTICULAR'}</div>
+                  <div style={{ fontSize: '11px', color: '#1319CF' }}>{c.company || 'PARTICULAR'}</div>
                 </td>
                 <td style={styles.td}>{c.email}</td>
                 <td style={styles.td}>
