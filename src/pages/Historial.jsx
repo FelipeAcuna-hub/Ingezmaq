@@ -21,46 +21,60 @@ const Historial = ({ session }) => {
     session?.user?.user_metadata?.role === 'admin' ||
     ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
 
-  // --- FUNCIÓN DE CARGA DE DATOS COMPLETA ---
-  // CAMBIO: Dependencias optimizadas para evitar re-creaciones de la función// --- FUNCIÓN DE CARGA DE DATOS COMPLETA REESTRUCTURADA ---
+  // --- FUNCIÓN DE CARGA DE DATOS COMPLETA REESTRUCTURADA ---
+  // --- FUNCIÓN DE CARGA DE DATOS COMPLETA REESTRUCTURADA ---
   const fetchDatos = useCallback(async () => {
     try {
       setLoading(true);
       if (!session?.user?.id) return;
 
-      console.log("Cargando historial unificado desde movimientos...");
+      console.log("=== INICIANDO FETCH DE HISTORIAL DE CRÉDITOS ===");
 
-      // 1. CARGAMOS TODO DESDE LA ÚNICA TABLA REAL: movimientos
-      let query = supabase
+      // 1. CONSULTA A TABLA 'movimientos'
+      let queryMovs = supabase
         .from('movimientos')
         .select('*, profiles:user_id(company)')
         .order('created_at', { ascending: false });
 
       if (!isAdmin) {
-        query = query.eq('user_id', session?.user?.id);
+        queryMovs = queryMovs.eq('user_id', session?.user?.id);
       }
 
-      const { data: todosLosMovimientos, error: errorMovs } = await query;
-      if (errorMovs) throw errorMovs;
+      // 2. CONSULTA A TABLA 'historial_movimientos'
+      // Usamos el selector '*' para traer todas las columnas planas sin hacer Join complejo con profiles por ahora
+      // Esto nos servirá para descartar si el Join de profiles es el que rompe la consulta
+      let queryCanjes = supabase
+        .from('historial_movimientos')
+        .select('*') 
+        .order('fecha', { ascending: false });
 
-      // 2. SEPARAMOS EN TU ESTADO LOCAL SEGÚN EL TIPO DE OPERACIÓN
-      // Las recargas/abonos van a la Sección 1
-      const recargas = todosLosMovimientos.filter(m => m.tipo === 'carga');
-      
-      // Los canjes/descuentos van a la Sección 2 (Soportando 'canje' o 'gasto')
-      const consumos = todosLosMovimientos.filter(m => m.tipo === 'canje' || m.tipo === 'gasto');
+      if (!isAdmin) {
+        queryCanjes = queryCanjes.eq('perfil_id', session?.user?.id);
+      }
 
-      setMovimientos(recargas);
-      setCanjes(consumos);
+      // Ejecutamos ambas consultas en paralelo
+      const [resMovs, resCanjes] = await Promise.all([queryMovs, queryCanjes]);
+
+      if (resMovs.error) {
+        console.error("Error en tabla 'movimientos':", resMovs.error);
+      }
+      if (resCanjes.error) {
+        console.error("Error en tabla 'historial_movimientos':", resCanjes.error);
+      }
+
+      console.log("Datos de recargas recibidos:", resMovs.data);
+      console.log("Datos de canjes recibidos:", resCanjes.data);
+
+      setMovimientos(resMovs.data || []);
+      setCanjes(resCanjes.data || []);
 
     } catch (error) {
-      console.error("Error cargando historial:", error.message);
+      console.error("Error crítico cargando historiales:", error.message);
     } finally {
       setLoading(false);
     }
-  }, [session?.user?.id, isAdmin]); // CAMBIO: Dependemos del ID, no del objeto session entero
+  }, [session?.user?.id, isAdmin]);
 
-  // CAMBIO: useEffect ahora solo se dispara cuando el ID de usuario cambia realmente
   useEffect(() => {
     if (session?.user?.id) {
       fetchDatos();
@@ -128,7 +142,7 @@ const Historial = ({ session }) => {
   return (
     <div style={styles.mainContent}>
       
-      {/* --- SECCIÓN 1: RECARGAS Y RETIROS --- */}
+      {/* --- SECCIÓN 1: RECARGAS (Tabla movimientos) --- */}
       <div style={styles.card}>
         <div style={styles.headerFlex}>
           <h2 style={styles.tituloSeccion}>
@@ -166,8 +180,8 @@ const Historial = ({ session }) => {
                     <span style={styles.adminBadge}>{m.admin_email || 'Sistema'}</span>
                   </td>
                 )}
-                <td style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold', color: m.tipo === 'gasto' ? '#e11d48' : '#228b22' }}>
-                  {m.tipo === 'gasto' ? '-' : '+'}{m.cantidad.toLocaleString('es-CL')}
+                <td style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#228b22' }}>
+                  +{m.cantidad.toLocaleString('es-CL')}
                 </td>
               </tr>
             ))}
@@ -177,7 +191,7 @@ const Historial = ({ session }) => {
         {!loading && movimientos.length === 0 && <p style={{ textAlign: 'center', color: '#999', marginTop: '20px' }}>No hay registros disponibles.</p>}
       </div>
 
-      {/* --- SECCIÓN 2: CANJES --- */}
+      {/* --- SECCIÓN 2: CANJES (Tabla historial_movimientos) --- */}
       <div style={styles.card}>
         <div style={styles.headerFlex}>
           <h2 style={styles.tituloSeccion}>
@@ -205,6 +219,7 @@ const Historial = ({ session }) => {
             {canjesPaginados.map(c => (
               <tr key={c.id}>
                 <td style={styles.td}>
+                  {/* ✅ Ajustado a tu columna 'fecha' */}
                   {new Date(c.fecha).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                 </td>
                 {isAdmin && <td style={styles.td}><span style={styles.companyText}>{c.profiles?.company || 'PARTICULAR'}</span></td>}

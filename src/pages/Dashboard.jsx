@@ -309,7 +309,7 @@ const Dashboard = ({ session }) => {
               <span>✉️</span> alientechchile@gmail.com
             </a>
             <div style={styles.footerContactItem}>
-              <span>📍</span> Chile — Despacho Internacional
+              <span>📍</span> Chile 
             </div>
           </div>
 
@@ -328,7 +328,7 @@ const Dashboard = ({ session }) => {
             © 2026 INGEZMAQ WEB v1.5 — TODOS LOS DERECHOS RESERVADOS
           </div>
           <div>
-            DESARROLLADO POR <a href="https://focaldevs.com" target="_blank" rel="noreferrer" style={styles.focaldevLink}>FOCALDEV</a>
+            DESARROLLADO POR <a href="https://focaldev.cl" target="_blank" rel="noreferrer" style={styles.focaldevLink}>FOCALDEV</a>
           </div>
         </div>
       </footer>

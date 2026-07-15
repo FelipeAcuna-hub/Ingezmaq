@@ -30,7 +30,6 @@ const Admin = ({ session }) => {
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina] = useState(10);
 
-  // --- CONFIGURACIÓN DE LOS 3 ADMINISTRADORES ---
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
     'oliver.zuniga@gmail.com',

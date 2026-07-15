@@ -14,6 +14,7 @@ const Tickets = ({ session }) => {
 
   const [asunto, setAsunto] = useState('');
   const [mensajeInicial, setMensajeInicial] = useState('');
+  const [nuevoTicketFile, setNuevoTicketFile] = useState(null);
 
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
@@ -23,7 +24,13 @@ const Tickets = ({ session }) => {
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
 
   useEffect(() => { fetchTickets(); }, [session]);
-  useEffect(() => { if (selectedTicket) fetchMessages(selectedTicket.id); }, [selectedTicket]);
+  
+  // Escuchamos solo el ID para evitar renderizados infinitos
+  useEffect(() => { 
+    if (selectedTicket?.id) {
+      fetchMessages(selectedTicket.id); 
+    }
+  }, [selectedTicket?.id]);
 
   const fetchTickets = async () => {
     setLoading(true);
@@ -43,7 +50,6 @@ const Tickets = ({ session }) => {
     if (data) setMessages(data);
   };
 
-  // --- FUNCIÓN WHATSAPP ---
   const abrirWhatsappSoporte = () => {
     const telefonoSoporte = "56995161488";
     const texto = encodeURIComponent("Hola *Torres Aguayo MMS* 🏎️, necesito soporte técnico con un ticket.");
@@ -104,16 +110,24 @@ const Tickets = ({ session }) => {
         `Nuevo mensaje en ticket: ${selectedTicket.asunto}`, 
         `<p>${texto}</p>${fileUrl ? `<a href="${fileUrl}">Descargar Archivo</a>` : ''}`
       );
+    } else {
+      console.error("Error al insertar mensaje:", error);
+      alert("No se pudo guardar el mensaje: " + error.message);
     }
   };
 
   const enviarRespuesta = async (e) => {
     e.preventDefault();
     if (!nuevoMensaje.trim()) return;
-    setSendingMsg(true);
-    await insertarMensaje(nuevoMensaje);
-    setNuevoMensaje('');
-    setSendingMsg(false);
+    try {
+      setSendingMsg(true);
+      await insertarMensaje(nuevoMensaje);
+      setNuevoMensaje('');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSendingMsg(false); // Asegura liberar el estado pase lo que pase
+    }
   };
 
   const cambiarEstado = async (id, nuevoEstado) => {
@@ -124,16 +138,62 @@ const Tickets = ({ session }) => {
 
   const crearTicket = async (e) => {
     e.preventDefault();
+    let uploadedFileUrl = null;
+
+    if (nuevoTicketFile) {
+      try {
+        const cleanName = nuevoTicketFile.name
+          .replace(/\s+/g, '_')
+          .replace(/[()]/g, '')
+          .replace(/[{}]/g, '');
+
+        const folderName = Date.now();
+        const filePath = `${session.user.id}/${folderName}_${cleanName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('archivos-tickets')
+          .upload(filePath, nuevoTicketFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('archivos-tickets')
+          .getPublicUrl(filePath);
+
+        uploadedFileUrl = publicUrl;
+      } catch (uploadErr) {
+        alert("Error al subir el archivo adjunto: " + uploadErr.message);
+        return;
+      }
+    }
+
     const { error } = await supabase.from('tickets').insert({
       user_id: session.user.id,
       asunto,
       mensaje_inicial: mensajeInicial,
-      estado: 'Pendiente'
+      estado: 'Pendiente',
+      file_url: uploadedFileUrl
     });
+
     if (!error) {
       alert("✅ Ticket enviado.");
-      await enviarNotificacionEmail(ADMIN_EMAILS.join(','), `NUEVO TICKET: ${asunto}`, `<p>${mensajeInicial}</p>`);
-      setShowModal(false); setAsunto(''); setMensajeInicial(''); fetchTickets();
+      const linkAdjuntoHtml = uploadedFileUrl 
+        ? `<p><strong>📎 Archivo Adjunto Inicial:</strong> <a href="${uploadedFileUrl}">Descargar adjunto</a></p>` 
+        : '';
+
+      await enviarNotificacionEmail(
+        ADMIN_EMAILS.join(','), 
+        `NUEVO TICKET: ${asunto}`, 
+        `<p>${mensajeInicial}</p>${linkAdjuntoHtml}`
+      );
+      
+      setShowModal(false); 
+      setAsunto(''); 
+      setMensajeInicial(''); 
+      setNuevoTicketFile(null); 
+      fetchTickets();
+    } else {
+      alert("Error al crear el ticket: " + error.message);
     }
   };
 
@@ -159,11 +219,9 @@ const Tickets = ({ session }) => {
 
   return (
     <div style={styles.mainContent}>
-      {/* HEADER ACTUALIZADO CON WHATSAPP */}
       <div style={styles.card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
           <h2 style={{ margin: 0, textTransform: 'uppercase' }}>Soporte Técnico</h2>
-          
           <div style={{ display: 'flex', gap: '10px' }}>
             <button style={styles.btnWhatsapp} onClick={abrirWhatsappSoporte}>
               <span style={{ fontSize: '18px' }}>💬</span> SOPORTE POR WHATSAPP
@@ -175,7 +233,6 @@ const Tickets = ({ session }) => {
         </div>
       </div>
 
-      {/* TABLA DE TICKETS */}
       <div style={styles.card}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -210,7 +267,6 @@ const Tickets = ({ session }) => {
         </table>
       </div>
 
-      {/* MODAL DE CHAT */}
       {selectedTicket && (
         <div style={styles.modal}>
           <div style={styles.chatBox}>
@@ -229,7 +285,17 @@ const Tickets = ({ session }) => {
             </div>
 
             <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', backgroundColor: '#f9f9f9' }}>
-              <div style={styles.message(false)}><strong>Inicio:</strong><br/>{selectedTicket.mensaje_inicial}</div>
+              <div style={styles.message(false)}>
+                <strong>Inicio:</strong><br/>{selectedTicket.mensaje_inicial}
+                {selectedTicket.file_url && (
+                  <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: '6px' }}>
+                    <a href={selectedTicket.file_url} target="_blank" rel="noreferrer" style={{ color: 'white', fontWeight: 'bold', fontSize: '12px', textDecoration: 'underline' }}>
+                      📥 DESCARGAR ADJUNTO INICIAL
+                    </a>
+                  </div>
+                )}
+              </div>
+              
               {messages.map(m => (
                 <div key={m.id} style={styles.message(m.is_admin_reply)}>
                   {m.mensaje}
@@ -244,24 +310,24 @@ const Tickets = ({ session }) => {
               ))}
             </div>
 
+            {/* 🛠️ MODIFICADO: Input totalmente liberado de bloqueos externos */}
             <form onSubmit={enviarRespuesta} style={{ padding: '20px', borderTop: '1px solid #eee', display: 'flex', gap: '10px', alignItems: 'center' }}>
               <label style={{ cursor: 'pointer', fontSize: '20px' }}>
                 {uploadingFile ? '⏳' : '📎'}
-                <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploadingFile} />
+                <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} />
               </label>
               <input 
-                style={{ flex: 1, padding: '12px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                style={{ flex: 1, padding: '12px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'white', color: '#333' }} 
                 placeholder="Escribe un mensaje..." 
                 value={nuevoMensaje} 
                 onChange={(e) => setNuevoMensaje(e.target.value)} 
               />
-              <button type="submit" style={styles.btnTicket} disabled={sendingMsg}>ENVIAR</button>
+              <button type="submit" style={styles.btnTicket}>ENVIAR</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL NUEVO TICKET */}
       {showModal && (
         <div style={styles.modal}>
           <div style={{ ...styles.card, width: '400px' }}>
@@ -269,11 +335,22 @@ const Tickets = ({ session }) => {
             <form onSubmit={crearTicket}>
               <label style={{ fontSize: '11px', fontWeight: 'bold' }}>ASUNTO</label>
               <input style={{ width: '100%', padding: '10px', marginBottom: '15px', border: '1px solid #ddd' }} required value={asunto} onChange={e => setAsunto(e.target.value)} />
+              
               <label style={{ fontSize: '11px', fontWeight: 'bold' }}>MENSAJE</label>
-              <textarea style={{ width: '100%', padding: '10px', height: '100px', border: '1px solid #ddd' }} required value={mensajeInicial} onChange={e => setMensajeInicial(e.target.value)} />
+              <textarea style={{ width: '100%', padding: '10px', height: '100px', border: '1px solid #ddd', marginBottom: '15px' }} required value={mensajeInicial} onChange={e => setMensajeInicial(e.target.value)} />
+              
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px' }}>ADJUNTAR ARCHIVO (OPCIONAL)</label>
+                <input 
+                  type="file" 
+                  onChange={(e) => setNuevoTicketFile(e.target.files[0])} 
+                  style={{ width: '100%', padding: '5px', fontSize: '12px', border: '1px solid #eee', borderRadius: '4px', backgroundColor: '#fafafa' }}
+                />
+              </div>
+
               <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                 <button type="submit" style={styles.btnTicket}>ENVIAR</button>
-                <button type="button" onClick={() => setShowModal(false)} style={{ ...styles.btnTicket, backgroundColor: '#666' }}>CERRAR</button>
+                <button type="button" onClick={() => { setShowModal(false); setNuevoTicketFile(null); }} style={{ ...styles.btnTicket, backgroundColor: '#666' }}>CERRAR</button>
               </div>
             </form>
           </div>

@@ -211,7 +211,7 @@ const UploadFile = ({ session }) => {
 
         await supabase.functions.invoke('swift-function', {
           body: { 
-            to: 'focaldevs@gmail.com',
+            to: 'focaldevs@gmail.com, alientechchile@gmail.com, sebastianzunigavaldivia@gmail.com',
             subject: `🚀 ARCHIVO: ${formData.patente} - ${formData.marca}`, 
             html: emailHtmlNuevo 
           },

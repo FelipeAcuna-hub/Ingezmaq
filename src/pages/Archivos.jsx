@@ -169,7 +169,7 @@ const Archivos = ({ session }) => {
         estado: 'completado'
       };
 
-      if (nota) updateData.nota_instalacion = nota;
+      if (nota) updateData.notas_instalacion = nota;
 
       const { error: dbError } = await supabase
         .from('archivos')
@@ -334,7 +334,7 @@ const Archivos = ({ session }) => {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th}>N° Orden / Fecha</th>
+                <th style={styles.th}>N° Orden / Fecha / Hora</th>
                 {isAdmin && <th style={styles.th}>Empresa</th>}
                 {isAdmin && <th style={styles.th}>Empresa</th>}
                 <th style={styles.th}>Patente</th>
@@ -350,11 +350,19 @@ const Archivos = ({ session }) => {
             <tbody>
               {archivosPaginados.map((archivo) => (
                 <tr key={archivo.id}>
+                  {/* --- COLUMNA N° ORDEN / FECHA / HORA MODIFICADA --- */}
                   <td style={styles.td}>
-                    <div style={{ fontWeight: 'bold', color: '#2563eb', fontSize: '14px' }}>#{archivo.numero_orden || '---'}</div>
-                    <div style={{ fontSize: '10px', color: '#999' }}>{new Date(archivo.created_at).toLocaleDateString('es-CL')}</div>
-
+                    <div style={{ fontWeight: 'bold', color: '#2563eb', fontSize: '14px' }}>
+                      #{archivo.numero_orden || '---'}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#666', fontWeight: '500', marginTop: '2px' }}>
+                      📅 {new Date(archivo.created_at).toLocaleDateString('es-CL')}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#888', fontStyle: 'italic', marginTop: '1px' }}>
+                      🕒 {new Date(archivo.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} hrs
+                    </div>
                   </td>
+                  
                   {isAdmin && <td style={{ ...styles.td, fontWeight: 'bold', color: '#2563eb' }}>{archivo.profiles?.company || 'PARTICULAR'}</td>}
                   {isAdmin && (
                     <td style={{ ...styles.td, fontSize: '11px', color: '#555' }}>
