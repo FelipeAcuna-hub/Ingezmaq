@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom'; // 1. Importamos el hook de contexto
 import { supabase } from '../supabaseClient';
 
 const Perfil = ({ session }) => {
   const [loading, setLoading] = useState(false);
   
+  // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
+  const { darkMode } = useOutletContext(); // 2. Extraemos darkMode del contexto
+
   // --- ESTADOS UNIFICADOS PARA CONTRASEÑA ---
   const [newPassword, setNewPassword] = useState("");
   const [mostrarPassword, setMostrarPassword] = useState(false);
@@ -106,13 +110,68 @@ const Perfil = ({ session }) => {
     }
   };
 
+  // --- PALETA DE COLORES DINÁMICA ---
   const styles = {
-    mainContent: { flex: 1, padding: '0', backgroundColor: '#f3f4f6' },
-    formCard: { backgroundColor: 'white', margin: '30px', padding: '40px', borderRadius: '4px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' },
-    sectionTitle: { fontSize: '18px', fontWeight: 'bold', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px', color: '#333' },
+    mainContent: { 
+      flex: 1, 
+      padding: '0', 
+      backgroundColor: darkMode ? '#0f172a' : '#f3f4f6', // Gris claro o azul slate oscuro
+      minHeight: '100vh',
+      transition: 'all 0.3s ease'
+    },
+    formCard: { 
+      backgroundColor: darkMode ? '#1e293b' : 'white', // Tarjeta clara o azul oscuro
+      margin: '30px', 
+      padding: '40px', 
+      borderRadius: '4px', 
+      boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.3)' : '0 2px 10px rgba(0,0,0,0.05)',
+      transition: 'all 0.3s ease'
+    },
+    sectionTitle: { 
+      fontSize: '18px', 
+      fontWeight: 'bold', 
+      marginBottom: '25px', 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '10px', 
+      color: darkMode ? '#f8fafc' : '#333', // Texto principal blanco o negro
+      borderBottom: darkMode ? '1px solid #334155' : '1px solid #e2e8f0',
+      paddingBottom: '8px'
+    },
     inputGroup: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '40px' },
-    label: { display: 'block', fontSize: '11px', fontWeight: 'bold', color: '#333', marginBottom: '8px', textTransform: 'uppercase' },
-    input: { width: '100%', padding: '12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }
+    label: { 
+      display: 'block', 
+      fontSize: '11px', 
+      fontWeight: 'bold', 
+      color: darkMode ? '#94a3b8' : '#333', // Etiquetas grises claras o negras
+      marginBottom: '8px', 
+      textTransform: 'uppercase' 
+    },
+    input: { 
+      width: '100%', 
+      padding: '12px', 
+      border: darkMode ? '1px solid #475569' : '1px solid #ddd', 
+      backgroundColor: darkMode ? '#0f172a' : '#ffffff', // Fondo de inputs
+      color: darkMode ? '#ffffff' : '#000000', // Texto de inputs
+      borderRadius: '4px', 
+      fontSize: '14px', 
+      boxSizing: 'border-box', 
+      outline: 'none',
+      transition: 'all 0.2s ease'
+    },
+    submitBtn: {
+      backgroundColor: darkMode ? '#2563eb' : '#000000', // Botón principal azul o negro
+      color: 'white', 
+      border: 'none', 
+      padding: '15px 40px', 
+      fontWeight: 'bold', 
+      cursor: 'pointer', 
+      borderRadius: '4px', 
+      textTransform: 'uppercase', 
+      fontSize: '13px', 
+      opacity: loading ? 0.7 : 1,
+      transition: 'all 0.2s ease'
+    }
   };
 
   return (
@@ -179,7 +238,12 @@ const Perfil = ({ session }) => {
           <div>
             <label style={styles.label}>E-MAIL</label>
             <input
-              style={{ ...styles.input, backgroundColor: '#f9f9f9' }}
+              style={{ 
+                ...styles.input, 
+                backgroundColor: darkMode ? '#1e293b' : '#f9f9f9', // Campo bloqueado más opaco
+                borderColor: darkMode ? '#334155' : '#ddd',
+                color: darkMode ? '#64748b' : '#666'
+              }}
               type="email"
               value={session?.user?.email}
               disabled
@@ -209,7 +273,8 @@ const Perfil = ({ session }) => {
                   padding: '5px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  color: darkMode ? '#94a3b8' : '#333'
                 }}
               >
                 {mostrarPassword ? '🔒' : '👁️'}
@@ -233,7 +298,7 @@ const Perfil = ({ session }) => {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-          <button type="submit" disabled={loading} style={{ backgroundColor: '#000', color: 'white', border: 'none', padding: '15px 40px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '4px', textTransform: 'uppercase', fontSize: '13px', opacity: loading ? 0.7 : 1 }}>
+          <button type="submit" disabled={loading} style={styles.submitBtn}>
             {loading ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
           </button>
         </div>

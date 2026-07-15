@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom'; // 1. Importamos el hook para el modo oscuro
 import { supabase } from '../supabaseClient';
 
 const Clientes = ({ session }) => {
@@ -10,6 +11,9 @@ const Clientes = ({ session }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina] = useState(10);
+
+  // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
+  const { darkMode } = useOutletContext(); // 2. Extraemos darkMode
 
   const fetchClientes = async () => {
     try {
@@ -61,20 +65,14 @@ const Clientes = ({ session }) => {
   };
 
   // --- LÓGICA DE FILTRADO Y BÚSQUEDA ---
-  // --- LÓGICA DE FILTRADO Y BÚSQUEDA CORREGIDA Y CORRIDA ---
   const clientesFiltrados = clientes.filter(c => {
-    // Forzamos a que si es null o undefined, sea tratado como un false real
     const aprobado = c.is_approved === true;
-
-    // Evaluamos la pestaña según el booleano limpio
     const cumpleTab = tab === 'pendientes' ? !aprobado : aprobado;
     
-    // Si no hay texto en el buscador, pasa directo si cumple la pestaña
     if (!searchTerm.trim()) return cumpleTab;
 
     const searchLower = searchTerm.toLowerCase();
 
-    // Evitamos caídas por campos nulls usando "|| ''"
     const name = (c.full_name || '').toLowerCase();
     const lastName = (c.apellido || '').toLowerCase();
     const comp = (c.company || '').toLowerCase();
@@ -95,44 +93,99 @@ const Clientes = ({ session }) => {
   const indicePrimer = indiceUltimo - itemsPorPagina;
   const clientesPaginados = clientesFiltrados.slice(indicePrimer, indiceUltimo);
 
+  // --- CONFIGURACIÓN DE STYLES COMPATIBLES CON MODO OSCURO/CLARO ---
   const styles = {
-    container: { flex: 1, padding: '30px', backgroundColor: '#f3f4f6', minHeight: '100vh' },
+    container: { 
+      flex: 1, 
+      padding: '30px', 
+      backgroundColor: darkMode ? '#0f172a' : '#f3f4f6', 
+      minHeight: '100vh',
+      transition: 'all 0.3s ease'
+    },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' },
     tabContainer: { display: 'flex', gap: '10px', marginBottom: '20px' },
     tab: (active) => ({
-      padding: '10px 20px', cursor: 'pointer', backgroundColor: active ? '#000' : '#ddd',
-      color: active ? '#fff' : '#666', fontWeight: 'bold', fontSize: '12px', border: 'none',
-      borderRadius: '4px', textTransform: 'uppercase'
+      padding: '10px 20px', 
+      cursor: 'pointer', 
+      backgroundColor: active 
+        ? (darkMode ? '#2563eb' : '#000000') 
+        : (darkMode ? '#1e293b' : '#ddd'),
+      color: active ? '#fff' : (darkMode ? '#94a3b8' : '#666'), 
+      fontWeight: 'bold', 
+      fontSize: '12px', 
+      border: darkMode ? '1px solid #334155' : 'none',
+      borderRadius: '4px', 
+      textTransform: 'uppercase',
+      transition: 'all 0.2s ease'
     }),
     searchBar: { 
-      display: 'flex', alignItems: 'center', backgroundColor: 'white', 
-      padding: '8px 15px', borderRadius: '4px', border: '1px solid #ddd', width: '300px' 
+      display: 'flex', 
+      alignItems: 'center', 
+      backgroundColor: darkMode ? '#1e293b' : 'white', 
+      padding: '8px 15px', 
+      borderRadius: '4px', 
+      border: darkMode ? '1px solid #334155' : '1px solid #ddd', 
+      width: '300px',
+      transition: 'all 0.3s ease'
     },
-    card: { backgroundColor: 'white', padding: '20px', borderRadius: '4px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' },
+    card: { 
+      backgroundColor: darkMode ? '#1e293b' : 'white', 
+      padding: '20px', 
+      borderRadius: '4px', 
+      boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.3)' : '0 2px 10px rgba(0,0,0,0.05)',
+      color: darkMode ? '#ffffff' : '#333333',
+      transition: 'all 0.3s ease'
+    },
     table: { width: '100%', borderCollapse: 'collapse' },
-    th: { textAlign: 'left', padding: '12px', borderBottom: '2px solid #eee', fontSize: '11px', color: '#888', textTransform: 'uppercase' },
-    td: { padding: '12px', borderBottom: '1px solid #eee', fontSize: '13px' },
+    th: { 
+      textAlign: 'left', 
+      padding: '12px', 
+      borderBottom: darkMode ? '2px solid #334155' : '2px solid #eee', 
+      fontSize: '11px', 
+      color: darkMode ? '#94a3b8' : '#888', 
+      textTransform: 'uppercase' 
+    },
+    td: { 
+      padding: '12px', 
+      borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', 
+      fontSize: '13px',
+      color: darkMode ? '#e2e8f0' : '#333333'
+    },
     btnApprove: { backgroundColor: '#22c55e', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px', marginRight: '5px' },
     btnReject: { backgroundColor: '#e11d48', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px' },
     pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '30px' },
     pageBtn: (active) => ({ 
-      padding: '8px 16px', cursor: 'pointer', backgroundColor: active ? '#e11d48' : 'white', 
-      color: active ? 'white' : '#666', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' 
+      padding: '8px 16px', 
+      cursor: 'pointer', 
+      backgroundColor: active ? '#e11d48' : (darkMode ? '#0f172a' : 'white'), 
+      color: active ? 'white' : (darkMode ? '#94a3b8' : '#666'), 
+      border: darkMode ? '1px solid #334155' : '1px solid #ddd', 
+      borderRadius: '4px', 
+      fontSize: '12px', 
+      fontWeight: 'bold',
+      transition: 'all 0.2s ease'
     })
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h2 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '1px', fontSize: '20px' }}>Gestión de Clientes</h2>
+        <h2 style={{ margin: 0, textTransform: 'uppercase', letterSpacing: '1px', fontSize: '20px', color: darkMode ? '#ffffff' : '#000000' }}>Gestión de Clientes</h2>
         
         {/* BUSCADOR */}
         <div style={styles.searchBar}>
-          <span style={{ marginRight: '10px' }}>🔍</span>
+          <span style={{ marginRight: '10px', color: darkMode ? '#94a3b8' : '#333' }}>🔍</span>
           <input 
             type="text" 
             placeholder="Buscar por nombre o empresa..." 
-            style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px' }}
+            style={{ 
+              border: 'none', 
+              outline: 'none', 
+              width: '100%', 
+              fontSize: '13px', 
+              backgroundColor: 'transparent',
+              color: darkMode ? '#ffffff' : '#000000'
+            }}
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }}
           />
@@ -164,17 +217,19 @@ const Clientes = ({ session }) => {
               <tr key={c.id}>
                 <td style={styles.td}>
                   <div style={{ fontWeight: 'bold' }}>{c.full_name} {c.apellido}</div>
-                  <div style={{ fontSize: '11px', color: '#1319CF' }}>{c.company || 'PARTICULAR'}</div>
+                  <div style={{ fontSize: '11px', color: darkMode ? '#3b82f6' : '#1319CF', fontWeight: 'bold' }}>
+                    {c.company || 'PARTICULAR'}
+                  </div>
                 </td>
                 <td style={styles.td}>{c.email}</td>
                 <td style={styles.td}>
-                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: darkMode ? '#4ade80' : '#333' }}>
                     {c.credits || 0}
                   </div>
                 </td>
                 <td style={styles.td}>
                   <div>{c.country}</div>
-                  <div style={{ fontSize: '10px', color: '#999' }}>{c.rut}</div>
+                  <div style={{ fontSize: '10px', color: darkMode ? '#64748b' : '#999' }}>{c.rut}</div>
                 </td>
                 <td style={styles.td}>
                   {tab === 'pendientes' ? (
@@ -190,8 +245,8 @@ const Clientes = ({ session }) => {
                 </td>
               </tr>
             ))}
-            {loading && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>Cargando datos...</td></tr>}
-            {!loading && clientesPaginados.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: '#999' }}>No se encontraron resultados.</td></tr>}
+            {loading && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: darkMode ? '#94a3b8' : '#666' }}>Cargando datos...</td></tr>}
+            {!loading && clientesPaginados.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: darkMode ? '#64748b' : '#999' }}>No se encontraron resultados.</td></tr>}
           </tbody>
         </table>
 

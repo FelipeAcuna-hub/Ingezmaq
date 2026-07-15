@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom'; // 1. Importamos el hook para el modo oscuro
 import { supabase } from '../supabaseClient';
 
 const Tickets = ({ session }) => {
@@ -16,6 +17,9 @@ const Tickets = ({ session }) => {
   const [mensajeInicial, setMensajeInicial] = useState('');
   const [nuevoTicketFile, setNuevoTicketFile] = useState(null);
 
+  // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
+  const { darkMode } = useOutletContext(); // 2. Extraemos darkMode
+
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
     'oliver.zuniga@gmail.com',
@@ -25,7 +29,6 @@ const Tickets = ({ session }) => {
 
   useEffect(() => { fetchTickets(); }, [session]);
   
-  // Escuchamos solo el ID para evitar renderizados infinitos
   useEffect(() => { 
     if (selectedTicket?.id) {
       fetchMessages(selectedTicket.id); 
@@ -126,7 +129,7 @@ const Tickets = ({ session }) => {
     } catch (err) {
       console.error(err);
     } finally {
-      setSendingMsg(false); // Asegura liberar el estado pase lo que pase
+      setSendingMsg(false);
     }
   };
 
@@ -197,31 +200,95 @@ const Tickets = ({ session }) => {
     }
   };
 
+  // --- CONFIGURACIÓN DE STYLES COMPATIBLES CON MODO OSCURO/CLARO ---
   const styles = {
-    mainContent: { flex: 1, padding: '20px', backgroundColor: '#f3f4f6', minHeight: '100vh', fontFamily: 'sans-serif' },
-    card: { backgroundColor: 'white', padding: '30px', borderRadius: '4px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', marginBottom: '20px' },
+    mainContent: { 
+      flex: 1, 
+      padding: '20px', 
+      backgroundColor: darkMode ? '#0f172a' : '#f3f4f6', 
+      minHeight: '100vh', 
+      fontFamily: 'sans-serif',
+      transition: 'all 0.3s ease'
+    },
+    card: { 
+      backgroundColor: darkMode ? '#1e293b' : 'white', 
+      padding: '30px', 
+      borderRadius: '4px', 
+      boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.3)' : '0 2px 10px rgba(0,0,0,0.05)', 
+      marginBottom: '20px',
+      color: darkMode ? '#ffffff' : '#333333',
+      transition: 'all 0.3s ease'
+    },
     btnTicket: { backgroundColor: '#e11d48', color: 'white', padding: '12px 24px', border: 'none', fontWeight: 'bold', cursor: 'pointer', borderRadius: '2px' },
     btnWhatsapp: { backgroundColor: '#25D366', color: 'white', padding: '12px 24px', border: 'none', fontWeight: 'bold', cursor: 'pointer', borderRadius: '2px', display: 'inline-flex', alignItems: 'center', gap: '8px' },
     badge: (estado) => ({
       padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold',
       backgroundColor: estado === 'Resuelto' ? '#267358' : estado === 'En Curso' ? '#f59e0b' : '#e11d48', color: 'white'
     }),
-    modal: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
-    chatBox: { backgroundColor: 'white', width: '90%', maxWidth: '600px', height: '85vh', borderRadius: '8px', display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+    modal: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100 },
+    chatBox: { 
+      backgroundColor: darkMode ? '#1e293b' : 'white', 
+      width: '90%', 
+      maxWidth: '600px', 
+      height: '85vh', 
+      borderRadius: '8px', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      overflow: 'hidden',
+      border: darkMode ? '1px solid #334155' : 'none'
+    },
     message: (isAdminMsg) => ({
       alignSelf: isAdminMsg ? 'flex-start' : 'flex-end',
-      backgroundColor: isAdminMsg ? '#f1f1f1' : '#e11d48',
-      color: isAdminMsg ? '#333' : 'white',
+      backgroundColor: isAdminMsg 
+        ? (darkMode ? '#334155' : '#f1f1f1') 
+        : '#e11d48',
+      color: isAdminMsg 
+        ? (darkMode ? '#f1f5f9' : '#333') 
+        : 'white',
       padding: '10px 15px', borderRadius: '10px', marginBottom: '10px', maxWidth: '80%', fontSize: '14px',
       wordBreak: 'break-word', overflowWrap: 'anywhere', display: 'flex', flexDirection: 'column'
     }),
+    tableHeader: {
+      textAlign: 'left', 
+      borderBottom: darkMode ? '2px solid #334155' : '2px solid #eee', 
+      fontSize: '12px', 
+      color: darkMode ? '#94a3b8' : '#888'
+    },
+    tableRow: {
+      borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee'
+    },
+    thCell: {
+      padding: '12px'
+    },
+    tdCell: {
+      padding: '12px',
+      fontSize: '13px',
+      color: darkMode ? '#e2e8f0' : '#333333'
+    },
+    inputStyle: {
+      width: '100%', 
+      padding: '10px', 
+      marginBottom: '15px', 
+      border: darkMode ? '1px solid #475569' : '1px solid #ddd',
+      backgroundColor: darkMode ? '#0f172a' : '#ffffff',
+      color: darkMode ? '#ffffff' : '#000000',
+      outline: 'none',
+      borderRadius: '4px'
+    },
+    labelStyle: {
+      display: 'block',
+      fontSize: '11px',
+      fontWeight: 'bold',
+      color: darkMode ? '#94a3b8' : '#333333',
+      marginBottom: '5px'
+    }
   };
 
   return (
     <div style={styles.mainContent}>
       <div style={styles.card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-          <h2 style={{ margin: 0, textTransform: 'uppercase' }}>Soporte Técnico</h2>
+          <h2 style={{ margin: 0, textTransform: 'uppercase', color: darkMode ? '#f8fafc' : '#333333' }}>Soporte Técnico</h2>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button style={styles.btnWhatsapp} onClick={abrirWhatsappSoporte}>
               <span style={{ fontSize: '18px' }}>💬</span> SOPORTE POR WHATSAPP
@@ -236,30 +303,43 @@ const Tickets = ({ session }) => {
       <div style={styles.card}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '2px solid #eee', fontSize: '12px', color: '#888' }}>
-              <th style={{ padding: '12px' }}>FECHA</th>
-              <th style={{ padding: '12px' }}>ASUNTO</th>
-              {isAdmin && <th style={{ padding: '12px' }}>CLIENTE / EMPRESA</th>}
-              <th style={{ padding: '12px' }}>ESTADO</th>
-              <th style={{ padding: '12px' }}>ACCIÓN</th>
+            <tr style={styles.tableHeader}>
+              <th style={styles.thCell}>FECHA</th>
+              <th style={styles.thCell}>ASUNTO</th>
+              {isAdmin && <th style={styles.thCell}>CLIENTE / EMPRESA</th>}
+              <th style={styles.thCell}>ESTADO</th>
+              <th style={styles.thCell}>ACCIÓN</th>
             </tr>
           </thead>
           <tbody>
             {tickets.map(t => (
-              <tr key={t.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '12px', fontSize: '13px' }}>{new Date(t.created_at).toLocaleDateString()}</td>
-                <td style={{ padding: '12px' }}><strong>{t.asunto}</strong></td>
+              <tr key={t.id} style={styles.tableRow}>
+                <td style={styles.tdCell}>{new Date(t.created_at).toLocaleDateString()}</td>
+                <td style={styles.tdCell}><strong>{t.asunto}</strong></td>
                 {isAdmin && (
-                  <td style={{ padding: '12px' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{t.profiles?.company || 'Particular'}</div>
-                    <div style={{ fontSize: '11px', color: '#888' }}>{t.profiles?.email}</div>
+                  <td style={styles.tdCell}>
+                    <div style={{ fontWeight: 'bold' }}>{t.profiles?.company || 'Particular'}</div>
+                    <div style={{ fontSize: '11px', color: darkMode ? '#94a3b8' : '#888' }}>{t.profiles?.email}</div>
                   </td>
                 )}
-                <td style={{ padding: '12px' }}>
+                <td style={styles.tdCell}>
                   <span style={styles.badge(t.estado)}>{t.estado?.toUpperCase()}</span>
                 </td>
-                <td style={{ padding: '12px' }}>
-                  <button onClick={() => setSelectedTicket(t)} style={{ padding: '5px 10px', cursor: 'pointer', borderRadius: '4px', fontSize: '12px' }}>VER CHAT</button>
+                <td style={styles.tdCell}>
+                  <button 
+                    onClick={() => setSelectedTicket(t)} 
+                    style={{ 
+                      padding: '5px 10px', 
+                      cursor: 'pointer', 
+                      borderRadius: '4px', 
+                      fontSize: '12px',
+                      backgroundColor: darkMode ? '#334155' : '#f1f1f1',
+                      color: darkMode ? '#ffffff' : '#333333',
+                      border: darkMode ? '1px solid #475569' : '1px solid #ddd'
+                    }}
+                  >
+                    VER CHAT
+                  </button>
                 </td>
               </tr>
             ))}
@@ -270,21 +350,49 @@ const Tickets = ({ session }) => {
       {selectedTicket && (
         <div style={styles.modal}>
           <div style={styles.chatBox}>
-            <div style={{ padding: '20px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fafafa' }}>
+            <div style={{ 
+              padding: '20px', 
+              borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              backgroundColor: darkMode ? '#0f172a' : '#fafafa' 
+            }}>
               <div>
-                <h4 style={{ margin: 0 }}>{selectedTicket.asunto}</h4>
+                <h4 style={{ margin: 0, color: darkMode ? '#ffffff' : '#333333' }}>{selectedTicket.asunto}</h4>
                 {isAdmin && (
-                  <select value={selectedTicket.estado} onChange={(e) => cambiarEstado(selectedTicket.id, e.target.value)} style={{ marginTop: '5px' }}>
+                  <select 
+                    value={selectedTicket.estado} 
+                    onChange={(e) => cambiarEstado(selectedTicket.id, e.target.value)} 
+                    style={{ 
+                      marginTop: '5px',
+                      backgroundColor: darkMode ? '#1e293b' : '#ffffff',
+                      color: darkMode ? '#ffffff' : '#333333',
+                      border: darkMode ? '1px solid #475569' : '1px solid #ddd',
+                      padding: '4px',
+                      borderRadius: '4px'
+                    }}
+                  >
                     <option value="Pendiente">PENDIENTE</option>
                     <option value="En Curso">EN CURSO</option>
                     <option value="Resuelto">RESUELTO</option>
                   </select>
                 )}
               </div>
-              <button onClick={() => setSelectedTicket(null)} style={{ border: 'none', background: 'none', fontSize: '24px', cursor: 'pointer' }}>&times;</button>
+              <button 
+                onClick={() => setSelectedTicket(null)} 
+                style={{ border: 'none', background: 'none', fontSize: '24px', cursor: 'pointer', color: darkMode ? '#ffffff' : '#333333' }}
+              >&times;</button>
             </div>
 
-            <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', backgroundColor: '#f9f9f9' }}>
+            <div style={{ 
+              flex: 1, 
+              padding: '20px', 
+              overflowY: 'auto', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              backgroundColor: darkMode ? '#0f172a' : '#f9f9f9' 
+            }}>
               <div style={styles.message(false)}>
                 <strong>Inicio:</strong><br/>{selectedTicket.mensaje_inicial}
                 {selectedTicket.file_url && (
@@ -310,14 +418,27 @@ const Tickets = ({ session }) => {
               ))}
             </div>
 
-            {/* 🛠️ MODIFICADO: Input totalmente liberado de bloqueos externos */}
-            <form onSubmit={enviarRespuesta} style={{ padding: '20px', borderTop: '1px solid #eee', display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <label style={{ cursor: 'pointer', fontSize: '20px' }}>
+            <form onSubmit={enviarRespuesta} style={{ 
+              padding: '20px', 
+              borderTop: darkMode ? '1px solid #334155' : '1px solid #eee', 
+              display: 'flex', 
+              gap: '10px', 
+              alignItems: 'center',
+              backgroundColor: darkMode ? '#1e293b' : '#ffffff'
+            }}>
+              <label style={{ cursor: 'pointer', fontSize: '20px', color: darkMode ? '#94a3b8' : '#333' }}>
                 {uploadingFile ? '⏳' : '📎'}
                 <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} />
               </label>
               <input 
-                style={{ flex: 1, padding: '12px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'white', color: '#333' }} 
+                style={{ 
+                  flex: 1, 
+                  padding: '12px', 
+                  border: darkMode ? '1px solid #475569' : '1px solid #ddd', 
+                  borderRadius: '4px', 
+                  backgroundColor: darkMode ? '#0f172a' : 'white', 
+                  color: darkMode ? '#ffffff' : '#333' 
+                }} 
                 placeholder="Escribe un mensaje..." 
                 value={nuevoMensaje} 
                 onChange={(e) => setNuevoMensaje(e.target.value)} 
@@ -330,21 +451,29 @@ const Tickets = ({ session }) => {
 
       {showModal && (
         <div style={styles.modal}>
-          <div style={{ ...styles.card, width: '400px' }}>
-            <h3>Nueva Consulta</h3>
+          <div style={{ ...styles.card, width: '400px', border: darkMode ? '1px solid #334155' : 'none' }}>
+            <h3 style={{ color: darkMode ? '#ffffff' : '#333333' }}>Nueva Consulta</h3>
             <form onSubmit={crearTicket}>
-              <label style={{ fontSize: '11px', fontWeight: 'bold' }}>ASUNTO</label>
-              <input style={{ width: '100%', padding: '10px', marginBottom: '15px', border: '1px solid #ddd' }} required value={asunto} onChange={e => setAsunto(e.target.value)} />
+              <label style={styles.labelStyle}>ASUNTO</label>
+              <input style={styles.inputStyle} required value={asunto} onChange={e => setAsunto(e.target.value)} />
               
-              <label style={{ fontSize: '11px', fontWeight: 'bold' }}>MENSAJE</label>
-              <textarea style={{ width: '100%', padding: '10px', height: '100px', border: '1px solid #ddd', marginBottom: '15px' }} required value={mensajeInicial} onChange={e => setMensajeInicial(e.target.value)} />
+              <label style={styles.labelStyle}>MENSAJE</label>
+              <textarea style={{ ...styles.inputStyle, height: '100px' }} required value={mensajeInicial} onChange={e => setMensajeInicial(e.target.value)} />
               
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px' }}>ADJUNTAR ARCHIVO (OPCIONAL)</label>
+                <label style={styles.labelStyle}>ADJUNTAR ARCHIVO (OPCIONAL)</label>
                 <input 
                   type="file" 
                   onChange={(e) => setNuevoTicketFile(e.target.files[0])} 
-                  style={{ width: '100%', padding: '5px', fontSize: '12px', border: '1px solid #eee', borderRadius: '4px', backgroundColor: '#fafafa' }}
+                  style={{ 
+                    width: '100%', 
+                    padding: '5px', 
+                    fontSize: '12px', 
+                    border: darkMode ? '1px solid #475569' : '1px solid #eee', 
+                    borderRadius: '4px', 
+                    backgroundColor: darkMode ? '#0f172a' : '#fafafa',
+                    color: darkMode ? '#94a3b8' : '#333333'
+                  }}
                 />
               </div>
 

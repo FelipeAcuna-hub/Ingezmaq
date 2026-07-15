@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom'; // 1. Importamos el hook para el modo oscuro
 
 const Simulador = () => {
   const navigate = useNavigate();
   
+  // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
+  const { darkMode } = useOutletContext(); // 2. Extraemos darkMode
+
   // 1. ESTADOS PARA FILTRADO DINÁMICO
   const [categoriaSel, setCategoriaSel] = useState(null);
   const [servicioSel, setServicioSel] = useState(null);
@@ -53,18 +56,82 @@ const Simulador = () => {
 
   const totalPrice = servicioSel ? servicioSel.price : 0;
 
+  // --- CONFIGURACIÓN DE STYLES COMPATIBLES CON MODO OSCURO/CLARO ---
   const styles = {
-    mainContent: { padding: '40px', flex: 1, backgroundColor: '#f3f4f6', minHeight: '100vh' },
-    title: { fontSize: '28px', fontWeight: 'bold', marginBottom: '30px', display: 'flex', alignItems: 'center', gap: '15px' },
+    mainContent: { 
+      padding: '40px', 
+      flex: 1, 
+      backgroundColor: darkMode ? '#0f172a' : '#f3f4f6', 
+      minHeight: '100vh',
+      transition: 'all 0.3s ease'
+    },
+    title: { 
+      fontSize: '28px', 
+      fontWeight: 'bold', 
+      marginBottom: '30px', 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '15px',
+      color: darkMode ? '#ffffff' : '#000000'
+    },
     grid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '40px' },
-    columnTitle: { fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' },
-    card: { backgroundColor: 'white', padding: '15px 20px', borderRadius: '4px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', border: '1px solid #ddd', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', transition: '0.3s' },
-    // 🔵 MODIFICADO: Borde y fondo cambiados a Azul Eléctrico e Ingezmaq Premium
-    cardSelected: { borderColor: '#2563eb', backgroundColor: '#eff6ff', borderLeft: '5px solid #2563eb' },
+    columnTitle: { 
+      fontSize: '20px', 
+      fontWeight: 'bold', 
+      marginBottom: '20px',
+      color: darkMode ? '#f8fafc' : '#000000'
+    },
+    card: { 
+      backgroundColor: darkMode ? '#1e293b' : 'white', 
+      padding: '15px 20px', 
+      borderRadius: '4px', 
+      marginBottom: '15px', 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      cursor: 'pointer', 
+      border: darkMode ? '1px solid #334155' : '1px solid #ddd', 
+      boxShadow: '0 2px 4px rgba(0,0,0,0.05)', 
+      transition: '0.3s',
+      color: darkMode ? '#e2e8f0' : '#000000'
+    },
+    cardSelected: { 
+      borderColor: '#2563eb', 
+      backgroundColor: darkMode ? '#1e3a8a' : '#eff6ff', 
+      borderLeft: '5px solid #2563eb',
+      color: '#ffffff'
+    },
     priceBadge: { backgroundColor: '#2563eb', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '14px' },
-    totalBox: { backgroundColor: 'black', color: 'white', padding: '30px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' },
+    totalBox: { 
+      backgroundColor: darkMode ? '#0f172a' : 'black', 
+      color: 'white', 
+      padding: '30px', 
+      borderRadius: '8px', 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      marginTop: '20px',
+      border: darkMode ? '1px solid #334155' : 'none'
+    },
     btnCargar: { backgroundColor: '#2563eb', color: 'white', padding: '15px 40px', border: 'none', borderRadius: '50px', fontWeight: 'bold', fontSize: '18px', cursor: 'pointer', alignSelf: 'flex-end', marginTop: '40px' },
-    infoBox: { backgroundColor: '#fef9c3', padding: '20px', borderRadius: '4px', border: '1px solid #fde047', color: '#854d0e', fontSize: '13px', lineHeight: '1.5' }
+    infoBox: { 
+      backgroundColor: darkMode ? 'rgba(254, 249, 195, 0.1)' : '#fef9c3', 
+      padding: '20px', 
+      borderRadius: '4px', 
+      border: darkMode ? '1px solid rgba(254, 249, 195, 0.3)' : '1px solid #fde047', 
+      color: darkMode ? '#fef08a' : '#854d0e', 
+      fontSize: '13px', 
+      lineHeight: '1.5' 
+    },
+    instruccionBox: {
+      backgroundColor: darkMode ? '#1e293b' : '#d1eaf0', 
+      padding: '15px', 
+      borderRadius: '4px', 
+      marginBottom: '20px', 
+      fontSize: '13px', 
+      color: darkMode ? '#38bdf8' : '#1e5a69',
+      border: darkMode ? '1px solid #334155' : 'none'
+    }
   };
 
   return (
@@ -75,7 +142,7 @@ const Simulador = () => {
         {/* 1. SELECCIÓN DE CATEGORÍA */}
         <div>
           <h3 style={styles.columnTitle}>1. TIPO SERVICIO</h3>
-          <div style={{ backgroundColor: '#d1eaf0', padding: '15px', borderRadius: '4px', marginBottom: '20px', fontSize: '13px', color: '#1e5a69' }}>
+          <div style={styles.instruccionBox}>
             Selecciona la categoría principal.
           </div>
           {Object.keys(SERVICIOS_CONFIG).map(cat => (
@@ -107,7 +174,7 @@ const Simulador = () => {
               </div>
             ))
           ) : (
-            <div style={{ color: '#999', textAlign: 'center', marginTop: '50px', fontStyle: 'italic' }}>
+            <div style={{ color: darkMode ? '#64748b' : '#999', textAlign: 'center', marginTop: '50px', fontStyle: 'italic' }}>
               Selecciona una categoría a la izquierda para ver las opciones...
             </div>
           )}
@@ -122,7 +189,6 @@ const Simulador = () => {
           
           <div style={styles.totalBox}>
             <span style={{ fontSize: '32px', fontWeight: 'bold' }}>Créditos</span>
-            {/* 🔵 MODIFICADO: Badge del precio total cambiado de rojo oscuro a Azul Eléctrico */}
             <span style={{ fontSize: '48px', fontWeight: 'bold', backgroundColor: '#2563eb', padding: '0 20px', borderRadius: '8px' }}>
               {totalPrice}
             </span>

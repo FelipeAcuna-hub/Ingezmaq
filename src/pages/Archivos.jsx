@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom'; // 1. Importamos el hook para el modo oscuro
 import { supabase } from '../supabaseClient';
 
 const Archivos = ({ session }) => {
@@ -10,6 +11,9 @@ const Archivos = ({ session }) => {
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina] = useState(8);
   const [statusFilter, setStatusFilter] = useState('todos');
+
+  // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
+  const { darkMode } = useOutletContext(); // 2. Extraemos darkMode
 
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
@@ -253,29 +257,118 @@ const Archivos = ({ session }) => {
     }
   };
 
+  // --- CONFIGURACIÓN DE STYLES COMPATIBLES CON MODO OSCURO/CLARO ---
   const styles = {
-    mainContent: { flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#f3f4f6', width: '100%', minHeight: '100vh' },
-    tableCard: { backgroundColor: 'white', margin: '10px', padding: '15px', borderRadius: '4px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' },
+    mainContent: { 
+      flex: 1, 
+      display: 'flex', 
+      flexDirection: 'column', 
+      backgroundColor: darkMode ? '#0f172a' : '#f3f4f6', 
+      width: '100%', 
+      minHeight: '100vh',
+      transition: 'all 0.3s ease'
+    },
+    tableCard: { 
+      backgroundColor: darkMode ? '#1e293b' : 'white', 
+      margin: '10px', 
+      padding: '15px', 
+      borderRadius: '4px', 
+      boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.3)' : '0 2px 10px rgba(0,0,0,0.05)',
+      color: darkMode ? '#ffffff' : '#333333',
+      transition: 'all 0.3s ease'
+    },
     responsiveContainer: { width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '20px' },
     table: { width: '100%', borderCollapse: 'collapse', marginTop: '20px', minWidth: '800px' },
-    th: { textAlign: 'left', padding: '12px', borderBottom: '2px solid #eee', fontSize: '10px', color: '#666', textTransform: 'uppercase', fontWeight: 'bold' },
-    td: { padding: '12px', borderBottom: '1px solid #eee', fontSize: '12px' },
+    th: { 
+      textAlign: 'left', 
+      padding: '12px', 
+      borderBottom: darkMode ? '2px solid #334155' : '2px solid #eee', 
+      fontSize: '10px', 
+      color: darkMode ? '#94a3b8' : '#666', 
+      textTransform: 'uppercase', 
+      fontWeight: 'bold' 
+    },
+    td: { 
+      padding: '12px', 
+      borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', 
+      fontSize: '12px',
+      color: darkMode ? '#e2e8f0' : '#333333'
+    },
     statusBadge: { padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap' },
-    selectAdmin: { padding: '5px', fontSize: '10px', fontWeight: 'bold', borderRadius: '4px', border: '1px solid #ddd', cursor: 'pointer', outline: 'none', backgroundColor: 'white' },
-    searchBar: { display: 'flex', alignItems: 'center', backgroundColor: '#f3f4f6', padding: '6px 12px', borderRadius: '4px', border: '1px solid #ddd' },
-    statusSelector: { padding: '6px 12px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '12px', outline: 'none', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 'bold', color: '#333', marginRight: '10px' },
+    selectAdmin: { 
+      padding: '5px', 
+      fontSize: '10px', 
+      fontWeight: 'bold', 
+      borderRadius: '4px', 
+      border: darkMode ? '1px solid #475569' : '1px solid #ddd', 
+      cursor: 'pointer', 
+      outline: 'none', 
+      backgroundColor: darkMode ? '#0f172a' : 'white',
+      color: darkMode ? '#ffffff' : '#000000'
+    },
+    searchBar: { 
+      display: 'flex', 
+      alignItems: 'center', 
+      backgroundColor: darkMode ? '#0f172a' : '#f3f4f6', 
+      padding: '6px 12px', 
+      borderRadius: '4px', 
+      border: darkMode ? '1px solid #334155' : '1px solid #ddd' 
+    },
+    statusSelector: { 
+      padding: '6px 12px', 
+      borderRadius: '4px', 
+      border: darkMode ? '1px solid #334155' : '1px solid #ddd', 
+      fontSize: '12px', 
+      outline: 'none', 
+      backgroundColor: darkMode ? '#0f172a' : '#fff', 
+      cursor: 'pointer', 
+      fontWeight: 'bold', 
+      color: darkMode ? '#ffffff' : '#333', 
+      marginRight: '10px' 
+    },
     modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' },
-    modalContent: { backgroundColor: 'white', width: '100%', maxWidth: '500px', borderRadius: '4px', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' },
+    modalContent: { 
+      backgroundColor: darkMode ? '#1e293b' : 'white', 
+      width: '100%', 
+      maxWidth: '500px', 
+      borderRadius: '4px', 
+      overflow: 'hidden', 
+      boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+      border: darkMode ? '1px solid #334155' : 'none'
+    },
     modalHeader: { backgroundColor: '#000', color: '#2563eb', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #2563eb' },
     modalBody: { padding: '25px', maxHeight: '75vh', overflowY: 'auto' },
     infoTable: { width: '100%', borderCollapse: 'collapse', marginBottom: '20px' },
-    infoLabel: { padding: '8px 0', fontWeight: 'bold', fontSize: '11px', color: '#000', borderBottom: '1px solid #eee', textTransform: 'uppercase', width: '40%' },
-    infoValue: { padding: '8px 0', fontSize: '12px', color: '#444', borderBottom: '1px solid #eee' },
+    infoLabel: { 
+      padding: '8px 0', 
+      fontWeight: 'bold', 
+      fontSize: '11px', 
+      color: darkMode ? '#ffffff' : '#000', 
+      borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', 
+      textTransform: 'uppercase', 
+      width: '40%' 
+    },
+    infoValue: { 
+      padding: '8px 0', 
+      fontSize: '12px', 
+      color: darkMode ? '#cbd5e1' : '#444', 
+      borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee' 
+    },
     pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '30px', paddingBottom: '20px' },
-    pageBtn: (active) => ({ padding: '8px 16px', cursor: 'pointer', backgroundColor: active ? '#2563eb' : 'white', color: active ? 'white' : '#666', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', transition: '0.2s' }),
+    pageBtn: (active) => ({ 
+      padding: '8px 16px', 
+      cursor: 'pointer', 
+      backgroundColor: active ? '#2563eb' : (darkMode ? '#0f172a' : 'white'), 
+      color: active ? 'white' : (darkMode ? '#94a3b8' : '#666'), 
+      border: darkMode ? '1px solid #334155' : '1px solid #ddd', 
+      borderRadius: '4px', 
+      fontSize: '12px', 
+      fontWeight: 'bold', 
+      transition: '0.2s' 
+    }),
     btnDownload: { border: 'none', fontSize: '9px', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'none', textAlign: 'center', color: 'white', display: 'block', width: '100%' },
     btnCancel: {
-      backgroundColor: '#fff',
+      backgroundColor: darkMode ? '#0f172a' : '#fff',
       color: '#2563eb',
       border: '1px solid #2563eb',
       padding: '6px',
@@ -324,8 +417,14 @@ const Archivos = ({ session }) => {
               <option value="completado">COMPLETADOS</option>
             </select>
             <div style={styles.searchBar}>
-              <span style={{ fontSize: '12px', marginRight: '8px' }}>🔍</span>
-              <input type="text" placeholder="Buscar..." style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '12px', width: '150px' }} value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }} />
+              <span style={{ fontSize: '12px', marginRight: '8px', color: darkMode ? '#94a3b8' : '#333' }}>🔍</span>
+              <input 
+                type="text" 
+                placeholder="Buscar..." 
+                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '12px', width: '150px', color: darkMode ? '#ffffff' : '#000000' }} 
+                value={searchTerm} 
+                onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }} 
+              />
             </div>
           </div>
         </div>
@@ -336,7 +435,7 @@ const Archivos = ({ session }) => {
               <tr>
                 <th style={styles.th}>N° Orden / Fecha / Hora</th>
                 {isAdmin && <th style={styles.th}>Empresa</th>}
-                {isAdmin && <th style={styles.th}>Empresa</th>}
+                {isAdmin && <th style={styles.th}>Correo</th>}
                 <th style={styles.th}>Patente</th>
                 <th style={styles.th}>Marca / Modelo</th>
                 <th style={styles.th}>Ficha</th>
@@ -355,24 +454,24 @@ const Archivos = ({ session }) => {
                     <div style={{ fontWeight: 'bold', color: '#2563eb', fontSize: '14px' }}>
                       #{archivo.numero_orden || '---'}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#666', fontWeight: '500', marginTop: '2px' }}>
+                    <div style={{ fontSize: '11px', color: darkMode ? '#94a3b8' : '#666', fontWeight: '500', marginTop: '2px' }}>
                       📅 {new Date(archivo.created_at).toLocaleDateString('es-CL')}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#888', fontStyle: 'italic', marginTop: '1px' }}>
+                    <div style={{ fontSize: '11px', color: darkMode ? '#64748b' : '#888', fontStyle: 'italic', marginTop: '1px' }}>
                       🕒 {new Date(archivo.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} hrs
                     </div>
                   </td>
                   
                   {isAdmin && <td style={{ ...styles.td, fontWeight: 'bold', color: '#2563eb' }}>{archivo.profiles?.company || 'PARTICULAR'}</td>}
                   {isAdmin && (
-                    <td style={{ ...styles.td, fontSize: '11px', color: '#555' }}>
+                    <td style={{ ...styles.td, fontSize: '11px', color: darkMode ? '#cbd5e1' : '#555' }}>
                       {archivo.profiles?.email || '---'}
                     </td>
                   )}
                   <td style={styles.td}>{archivo.patente}</td>
                   <td style={styles.td}>{archivo.marca_modelo}</td>
                   <td style={styles.td}>
-                    <button onClick={() => setArchivoDetalle(archivo)} style={{ backgroundColor: '#000', color: '#fff', border: 'none', padding: '4px 8px', fontSize: '9px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '2px' }}>DETALLES</button>
+                    <button onClick={() => setArchivoDetalle(archivo)} style={{ backgroundColor: darkMode ? '#2563eb' : '#000', color: '#fff', border: 'none', padding: '4px 8px', fontSize: '9px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '2px' }}>DETALLES</button>
                   </td>
                   <td style={styles.td}>
                     {isAdmin ? (
@@ -393,7 +492,7 @@ const Archivos = ({ session }) => {
                       {archivo.file_url_password && <button onClick={() => handleForceDownload(archivo.file_url_password)} style={{ ...styles.btnDownload, background: '#f59e0b' }}>🔑 PASSWORD</button>}
 
                       {archivo.file_url && !archivo.file_url_id && !archivo.file_url_mapa && (
-                        <button onClick={() => handleForceDownload(archivo.file_url)} style={{ ...styles.btnDownload, background: '#fff', border: '1px solid #ddd', color: '#666' }}>📄 ORIGINAL</button>
+                        <button onClick={() => handleForceDownload(archivo.file_url)} style={{ ...styles.btnDownload, background: darkMode ? '#334155' : '#fff', border: darkMode ? '1px solid #475569' : '1px solid #ddd', color: darkMode ? '#ffffff' : '#666' }}>📄 ORIGINAL</button>
                       )}
                     </div>
                   </td>
@@ -421,17 +520,18 @@ const Archivos = ({ session }) => {
                     </div>
                   </td>
 
+                  {/* --- MENSAJE TÉCNICO --- */}
                   <td style={{ ...styles.td, minWidth: '180px' }}>
                     <div style={{
                       fontSize: '11px', padding: '10px',
-                      backgroundColor: archivo.notas_instalacion ? '#fffbeb' : '#f9f9f9',
-                      border: '1px solid ' + (archivo.notas_instalacion ? '#fef3c7' : '#eee'),
-                      borderRadius: '4px', color: '#333', minHeight: '50px'
+                      backgroundColor: archivo.notas_instalacion ? (darkMode ? '#312e81' : '#fffbeb') : (darkMode ? '#0f172a' : '#f9f9f9'),
+                      border: '1px solid ' + (archivo.notas_instalacion ? (darkMode ? '#4338ca' : '#fef3c7') : (darkMode ? '#334155' : '#eee')),
+                      borderRadius: '4px', color: darkMode ? '#e2e8f0' : '#333', minHeight: '50px'
                     }}>
                       {archivo.notas_instalacion ? (
-                        <><div style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '4px', fontSize: '9px' }}>📝 INSTRUCCIONES:</div>{archivo.notas_instalacion}</>
+                        <><div style={{ fontWeight: 'bold', color: darkMode ? '#a5b4fc' : '#92400e', marginBottom: '4px', fontSize: '9px' }}>📝 INSTRUCCIONES:</div>{archivo.notas_instalacion}</>
                       ) : (
-                        <span style={{ color: '#aaa', fontStyle: 'italic' }}>No se han subido intrucciones...</span>
+                        <span style={{ color: darkMode ? '#475569' : '#aaa', fontStyle: 'italic' }}>No se han subido instrucciones...</span>
                       )}
                       {isAdmin && (
                         <button onClick={() => handleGuardarNota(archivo.id, archivo.notas_instalacion)} style={{ display: 'block', marginTop: '8px', backgroundColor: '#2563eb', color: 'white', border: 'none', padding: '3px 7px', fontSize: '9px', fontWeight: 'bold', borderRadius: '2px', cursor: 'pointer' }}>
@@ -440,12 +540,14 @@ const Archivos = ({ session }) => {
                       )}
                     </div>
                   </td>
+
+                  {/* --- ELIMINAR / CANCELAR --- */}
                   <td style={{ ...styles.td, textAlign: 'center' }}>
                     {!isAdmin && archivo.estado === 'pendiente' ? (
                       <button
                         onClick={() => handleCancelarSolicitud(archivo)}
                         style={{
-                          backgroundColor: 'white',
+                          backgroundColor: darkMode ? '#0f172a' : 'white',
                           color: '#2563eb',
                           border: '1px solid #2563eb',
                           padding: '6px 10px',
@@ -458,7 +560,7 @@ const Archivos = ({ session }) => {
                         ❌ CANCELAR
                       </button>
                     ) : (
-                      <span style={{ color: '#ccc', fontSize: '10px' }}>---</span>
+                      <span style={{ color: darkMode ? '#475569' : '#ccc', fontSize: '10px' }}>---</span>
                     )}
                   </td>
                 </tr>
@@ -480,7 +582,7 @@ const Archivos = ({ session }) => {
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
             <div style={styles.modalHeader}>
-              <h3 style={{ margin: 0, fontSize: '13px' }}>ORDEN N° {archivoDetalle.numero_orden} - {archivoDetalle.patente}</h3>
+              <h3 style={{ margin: 0, fontSize: '13px', color: '#ffffff' }}>ORDEN N° {archivoDetalle.numero_orden} - {archivoDetalle.patente}</h3>
               <button onClick={() => setArchivoDetalle(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>✕</button>
             </div>
             <div style={styles.modalBody}>
@@ -504,13 +606,13 @@ const Archivos = ({ session }) => {
                   ))}
                 </tbody>
               </table>
-              <div style={{ marginTop: '20px', backgroundColor: '#f9f9f9', padding: '15px', borderLeft: '4px solid #2563eb' }}>
+              <div style={{ marginTop: '20px', backgroundColor: darkMode ? '#0f172a' : '#f9f9f9', padding: '15px', borderLeft: '4px solid #2563eb' }}>
                 <div style={{ fontWeight: 'bold', fontSize: '10px', color: '#2563eb' }}>COMMENTS:</div>
-                <p style={{ margin: 0, fontSize: '12px', fontStyle: 'italic' }}>{archivoDetalle.detalles_tecnicos?.comentarios || 'No comments provided.'}</p>
+                <p style={{ margin: 0, fontSize: '12px', fontStyle: 'italic', color: darkMode ? '#cbd5e1' : '#444' }}>{archivoDetalle.detalles_tecnicos?.comentarios || 'No comments provided.'}</p>
               </div>
             </div>
-            <div style={{ padding: '15px', textAlign: 'right' }}>
-              <button onClick={() => setArchivoDetalle(null)} style={{ backgroundColor: '#000', color: 'white', border: 'none', padding: '8px 25px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>CLOSE</button>
+            <div style={{ padding: '15px', textAlign: 'right', borderTop: darkMode ? '1px solid #334155' : 'none' }}>
+              <button onClick={() => setArchivoDetalle(null)} style={{ backgroundColor: '#000', color: 'white', border: 'none', padding: '8px 25px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', borderRadius: '2px' }}>CLOSE</button>
             </div>
           </div>
         </div>

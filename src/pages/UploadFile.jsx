@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation, useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 // --- 1. DEFINICIÓN DE SERVICIOS DINÁMICOS ---
@@ -47,10 +47,108 @@ const SERVICIOS_CONFIG = {
   ]
 };
 
+// --- SUB-COMPONENTE INTERACTIVO PARA LAS CATEGORÍAS (CON ANIMACIÓN HOVER) ---
+const CategoryItem = ({ cat, isSelected, onClick, darkMode }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const itemStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '14px 18px',
+    marginBottom: '10px',
+    border: isSelected 
+      ? '2px solid #2563eb' 
+      : (darkMode ? '1px solid #334155' : '1px solid #eee'),
+    borderRadius: '8px',
+    cursor: 'pointer',
+    backgroundColor: isSelected 
+      ? (darkMode ? 'rgba(37, 99, 235, 0.25)' : '#eff6ff') 
+      : (isHovered ? (darkMode ? 'rgba(255,255,255,0.03)' : '#f8fafc') : (darkMode ? '#0f172a' : 'white')),
+    color: isSelected ? '#ffffff' : (darkMode ? '#cbd5e1' : '#000000'),
+    fontWeight: isSelected ? '700' : '500',
+    // Animación de desplazamiento y escala sutil
+    transform: isHovered && !isSelected ? 'translateX(4px)' : 'translateX(0)',
+    boxShadow: isSelected ? '0 4px 12px rgba(37,99,235,0.15)' : 'none',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+  };
+
+  return (
+    <div 
+      style={itemStyle} 
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <span style={{ 
+        fontSize: '13px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '6px',
+        color: isSelected ? '#60a5fa' : (isHovered ? '#2563eb' : (darkMode ? '#94a3b8' : '#666'))
+      }}>
+        › {cat}
+      </span>
+    </div>
+  );
+};
+
+// --- SUB-COMPONENTE INTERACTIVO PARA LAS OPCIONES DE SERVICIO (CON ANIMACIÓN HOVER) ---
+const ServiceOptionItem = ({ s, isSelected, onClick, darkMode }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const itemStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '14px 18px',
+    marginBottom: '10px',
+    border: isSelected 
+      ? '2px solid #22c55e' // Verde para destacar la selección final de compra
+      : (darkMode ? '1px solid #334155' : '1px solid #eee'),
+    borderRadius: '8px',
+    cursor: 'pointer',
+    backgroundColor: isSelected 
+      ? (darkMode ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4') 
+      : (isHovered ? (darkMode ? 'rgba(255,255,255,0.03)' : '#f8fafc') : (darkMode ? '#0f172a' : 'white')),
+    color: isSelected ? (darkMode ? '#4ade80' : '#15803d') : (darkMode ? '#cbd5e1' : '#000000'),
+    transform: isHovered && !isSelected ? 'scale(1.01) translateX(2px)' : 'scale(1) translateX(0)',
+    boxShadow: isSelected ? '0 4px 12px rgba(34,197,94,0.15)' : 'none',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+  };
+
+  const badgeStyle = {
+    backgroundColor: isSelected ? '#22c55e' : '#2563eb',
+    color: 'white',
+    padding: '4px 8px',
+    borderRadius: '6px',
+    fontSize: '11px',
+    fontWeight: 'bold',
+    transform: isHovered ? 'scale(1.08)' : 'scale(1)',
+    transition: 'transform 0.15s ease'
+  };
+
+  return (
+    <div 
+      style={itemStyle} 
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <span style={{ fontSize: '12px', fontWeight: isSelected ? '700' : '500', maxWidth: '80%' }}>{s.name}</span>
+      <span style={badgeStyle}>+{s.price}</span>
+    </div>
+  );
+};
+
+
 const UploadFile = ({ session }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const years = Array.from({ length: 2026 - 1990 + 1 }, (_, i) => 2026 - i);
+
+  // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
+  const { darkMode } = useOutletContext();
 
   const [fileId, setFileId] = useState(null);
   const [fileMapa, setFileMapa] = useState(null);
@@ -171,7 +269,6 @@ const UploadFile = ({ session }) => {
 
       if (dbError) throw dbError;
 
-      // --- NOTIFICACIÓN DE NUEVO ARCHIVO A ADMINISTRADORES ---
       try {
         const archivosLista = [];
         if (fileId) archivosLista.push("ID (Export Console)");
@@ -234,29 +331,63 @@ const UploadFile = ({ session }) => {
   };
 
   const styles = {
-    main: { flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#f3f4f6' },
-    formCard: { backgroundColor: 'white', margin: '30px', padding: '40px', borderRadius: '4px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' },
+    main: { 
+      flex: 1, 
+      display: 'flex', 
+      flexDirection: 'column', 
+      backgroundColor: darkMode ? '#0f172a' : '#f3f4f6',
+      transition: 'all 0.3s ease'
+    },
+    formCard: { 
+      backgroundColor: darkMode ? '#1e293b' : 'white', 
+      margin: '30px', 
+      padding: '40px', 
+      borderRadius: '4px', 
+      boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.3)' : '0 2px 10px rgba(0,0,0,0.05)',
+      color: darkMode ? '#ffffff' : '#000000',
+      transition: 'all 0.3s ease'
+    },
     row: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '20px', marginBottom: '20px' },
-    label: { display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', color: '#333', textTransform: 'uppercase' },
-    input: { width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' },
+    label: { display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', color: darkMode ? '#94a3b8' : '#333', textTransform: 'uppercase' },
+    input: { 
+      width: '100%', 
+      padding: '10px', 
+      border: darkMode ? '1px solid #475569' : '1px solid #ccc', 
+      borderRadius: '4px', 
+      boxSizing: 'border-box',
+      backgroundColor: darkMode ? '#0f172a' : '#ffffff',
+      color: darkMode ? '#ffffff' : '#000000',
+      outline: 'none',
+      transition: 'all 0.2s ease'
+    },
     gridFiles: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '25px' },
     fileBox: (hasFile, isRequired) => ({
-      border: hasFile ? '2px solid #22c55e' : (isRequired ? '2px dashed #2563eb' : '2px dashed #ddd'),
-      padding: '20px', textAlign: 'center', borderRadius: '4px',
-      backgroundColor: hasFile ? '#f0fdf4' : (isRequired ? '#eff6ff' : '#f9f9f9'), cursor: 'pointer', transition: '0.3s'
+      border: hasFile 
+        ? '2px solid #22c55e' 
+        : (isRequired ? '2px dashed #2563eb' : (darkMode ? '2px dashed #475569' : '2px dashed #ddd')),
+      padding: '20px', 
+      textAlign: 'center', 
+      borderRadius: '4px',
+      backgroundColor: hasFile 
+        ? (darkMode ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4') 
+        : (isRequired ? (darkMode ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff') : (darkMode ? '#0f172a' : '#f9f9f9')), 
+      cursor: 'pointer', 
+      transition: '0.3s'
     }),
     button: { backgroundColor: '#2563eb', color: 'white', border: 'none', padding: '15px 40px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '2px', textTransform: 'uppercase', fontSize: '13px' },
-    btnBack: { color: '#666', textDecoration: 'none', fontSize: '13px', marginLeft: '30px', marginTop: '20px', display: 'inline-block', fontWeight: 'bold' },
+    btnBack: { color: darkMode ? '#60a5fa' : '#666', textDecoration: 'none', fontSize: '13px', marginLeft: '30px', marginTop: '20px', display: 'inline-block', fontWeight: 'bold' },
     selectorGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', margin: '20px 0' },
-    serviceItem: (isSelected) => ({
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '12px', marginBottom: '8px', border: isSelected ? '2px solid #2563eb' : '1px solid #eee',
-      borderRadius: '4px', cursor: 'pointer', backgroundColor: isSelected ? '#eff6ff' : 'white'
-    }),
-    badgePrecio: { backgroundColor: '#2563eb', color: 'white', padding: '2px 6px', borderRadius: '3px', fontSize: '11px', fontWeight: 'bold' },
     resumenBox: {
-      backgroundColor: '#000', color: 'white', padding: '30px', borderRadius: '4px',
-      textAlign: 'center', marginTop: '30px', display: 'flex', justifyContent: 'space-around', alignItems: 'center'
+      backgroundColor: darkMode ? '#0f172a' : '#000', 
+      color: 'white', 
+      padding: '30px', 
+      borderRadius: '4px',
+      textAlign: 'center', 
+      marginTop: '30px', 
+      display: 'flex', 
+      justifyContent: 'space-around', 
+      alignItems: 'center',
+      border: darkMode ? '1px solid #334155' : 'none'
     }
   };
 
@@ -264,7 +395,7 @@ const UploadFile = ({ session }) => {
     <div style={styles.main}>
       <Link to="/" style={styles.btnBack}>← VOLVER AL DASHBOARD</Link>
       <div style={styles.formCard}>
-        <h2 style={{ fontSize: '20px', marginBottom: '30px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+        <h2 style={{ fontSize: '20px', marginBottom: '30px', borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', paddingBottom: '10px' }}>
           INFORMACIÓN DEL VEHÍCULO
         </h2>
 
@@ -272,12 +403,12 @@ const UploadFile = ({ session }) => {
           <div>
             <label style={styles.label}>Patente (Obligatorio)</label>
             <input
-              style={{ ...styles.input, borderColor: formData.patente ? '#ccc' : '#2563eb' }}
+              style={{ ...styles.input, borderColor: formData.patente ? (darkMode ? '#475569' : '#ccc') : '#2563eb' }}
               placeholder="AACC82"
               value={formData.patente}
               onChange={handlePatenteChange}
             />
-            <small style={{ fontSize: '9px', color: '#999' }}>Máx. 6 caracteres</small>
+            <small style={{ fontSize: '9px', color: darkMode ? '#64748b' : '#999' }}>Máx. 6 caracteres</small>
           </div>
           <div><label style={styles.label}>Marca</label><input style={styles.input} placeholder="AUDI" value={formData.marca} onChange={e => setFormData({ ...formData, marca: e.target.value.toUpperCase() })} /></div>
           <div><label style={styles.label}>Modelo</label><input style={styles.input} placeholder="Q7" value={formData.modelo} onChange={e => setFormData({ ...formData, modelo: e.target.value.toUpperCase() })} /></div>
@@ -304,27 +435,35 @@ const UploadFile = ({ session }) => {
           </div>
         </div>
 
-        <h2 style={{ fontSize: '20px', margin: '40px 0 20px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+        <h2 style={{ fontSize: '20px', margin: '40px 0 20px', borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', paddingBottom: '10px' }}>
           SIMULA EL PRECIO DE TU ARCHIVO
         </h2>
 
+        {/* --- SECCIÓN OPTIMIZADA CON COMPONENTES INTERACTIVOS DE ALTO RENDIMIENTO --- */}
         <div style={styles.selectorGrid}>
           <div>
             <label style={styles.label}>1. TIPO SERVICIO</label>
             {Object.keys(SERVICIOS_CONFIG).map(cat => (
-              <div key={cat} style={styles.serviceItem(categoriaSel === cat)} onClick={() => { setCategoriaSel(cat); setServicioSel(null); }}>
-                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>› {cat}</span>
-              </div>
+              <CategoryItem 
+                key={cat}
+                cat={cat}
+                isSelected={categoriaSel === cat}
+                darkMode={darkMode}
+                onClick={() => { setCategoriaSel(cat); setServicioSel(null); }}
+              />
             ))}
           </div>
           <div>
             <label style={styles.label}>2. DETALLE</label>
             {categoriaSel ? SERVICIOS_CONFIG[categoriaSel].map(s => (
-              <div key={s.id} style={styles.serviceItem(servicioSel?.id === s.id)} onClick={() => setServicioSel(s)}>
-                <span style={{ fontSize: '12px', fontWeight: '500' }}>{s.name}</span>
-                <span style={styles.badgePrecio}>+{s.price}</span>
-              </div>
-            )) : <p style={{ fontSize: '12px', color: '#999' }}>Selecciona una categoría primero...</p>}
+              <ServiceOptionItem 
+                key={s.id}
+                s={s}
+                isSelected={servicioSel?.id === s.id}
+                darkMode={darkMode}
+                onClick={() => setServicioSel(s)}
+              />
+            )) : <p style={{ fontSize: '12px', color: darkMode ? '#64748b' : '#999', textAlign: 'center', marginTop: '20px', fontStyle: 'italic' }}>Selecciona una categoría primero...</p>}
           </div>
         </div>
 
@@ -342,7 +481,7 @@ const UploadFile = ({ session }) => {
           <textarea style={{ ...styles.input, height: '80px' }} placeholder="..." value={formData.comentarios} onChange={e => setFormData({ ...formData, comentarios: e.target.value })}></textarea>
         </div>
 
-        <h2 style={{ fontSize: '20px', margin: '40px 0 20px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+        <h2 style={{ fontSize: '20px', margin: '40px 0 20px', borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', paddingBottom: '10px' }}>
           ADJUNTAR ARCHIVOS
         </h2>
 
@@ -351,21 +490,21 @@ const UploadFile = ({ session }) => {
             <input type="file" id="fileId" style={{ display: 'none' }} onChange={(e) => setFileId(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🆔</div>
             <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileId ? '#22c55e' : '#2563eb' }}>{fileId ? 'ID LISTO' : 'SUBIR ID (OBLIGATORIO)'}</div>
-            <div style={{ fontSize: '10px', color: '#888' }}>{fileId ? fileId.name : 'Export Console requerido'}</div>
+            <div style={{ fontSize: '10px', color: darkMode ? '#94a3b8' : '#888' }}>{fileId ? fileId.name : 'Export Console requerido'}</div>
           </div>
 
           <div style={styles.fileBox(!!fileMapa, true)} onClick={() => document.getElementById('fileMapa').click()}>
             <input type="file" id="fileMapa" style={{ display: 'none' }} onChange={(e) => setFileMapa(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🗺️</div>
             <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileMapa ? '#22c55e' : '#2563eb' }}>{fileMapa ? 'MAPA LISTO' : 'SUBIR MAPA (OBLIGATORIO)'}</div>
-            <div style={{ fontSize: '10px', color: '#888' }}>{fileMapa ? fileMapa.name : 'Lectura de mapa requerida'}</div>
+            <div style={{ fontSize: '10px', color: darkMode ? '#94a3b8' : '#888' }}>{fileMapa ? fileMapa.name : 'Lectura de mapa requerida'}</div>
           </div>
 
           <div style={styles.fileBox(!!filePass, false)} onClick={() => document.getElementById('filePass').click()}>
             <input type="file" id="filePass" style={{ display: 'none' }} onChange={(e) => setFilePass(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🔑</div>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: filePass ? '#22c55e' : '#333' }}>{filePass ? 'PASS LISTO' : 'SUBIR PASS (OPCIONAL)'}</div>
-            <div style={{ fontSize: '10px', color: '#888' }}>{filePass ? filePass.name : 'Solo si el archivo lo requiere'}</div>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: filePass ? '#22c55e' : (darkMode ? '#94a3b8' : '#333') }}>{filePass ? 'PASS LISTO' : 'SUBIR PASS (OPCIONAL)'}</div>
+            <div style={{ fontSize: '10px', color: darkMode ? '#64748b' : '#888' }}>{filePass ? filePass.name : 'Solo si el archivo lo requiere'}</div>
           </div>
         </div>
 
