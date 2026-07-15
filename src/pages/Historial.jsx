@@ -21,8 +21,7 @@ const Historial = ({ session }) => {
     session?.user?.user_metadata?.role === 'admin' ||
     ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
 
-  // --- FUNCIÓN DE CARGA DE DATOS COMPLETA REESTRUCTURADA ---
-  // --- FUNCIÓN DE CARGA DE DATOS COMPLETA REESTRUCTURADA ---
+  // --- FUNCIÓN DE CARGA DE DATOS ---
   const fetchDatos = useCallback(async () => {
     try {
       setLoading(true);
@@ -41,11 +40,10 @@ const Historial = ({ session }) => {
       }
 
       // 2. CONSULTA A TABLA 'historial_movimientos'
-      // Usamos el selector '*' para traer todas las columnas planas sin hacer Join complejo con profiles por ahora
-      // Esto nos servirá para descartar si el Join de profiles es el que rompe la consulta
+      // Obtenemos de manera relacional el company y el email del perfil asociado
       let queryCanjes = supabase
         .from('historial_movimientos')
-        .select('*') 
+        .select('*, profiles:perfil_id(company, email)') 
         .order('fecha', { ascending: false });
 
       if (!isAdmin) {
@@ -98,6 +96,8 @@ const Historial = ({ session }) => {
     tituloSeccion: { fontSize: '18px', margin: 0, textTransform: 'uppercase', color: '#000', fontWeight: 'bold' },
     refreshBtn: { backgroundColor: '#000', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', transition: 'opacity 0.2s' },
     companyText: { color: '#e11d48', fontWeight: 'bold', fontSize: '12px' },
+    emailText: { color: '#666', fontSize: '12px' }, // Estilo simple y legible para la nueva columna de correos
+    timeText: { color: '#888', fontSize: '11px', marginTop: '2px', display: 'block' }, // Estilo para la hora bajo la fecha
     adminBadge: { backgroundColor: '#f9f9f9', padding: '4px 8px', borderRadius: '3px', fontSize: '11px', color: '#666', border: '1px solid #eee', fontStyle: 'italic' },
     pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '25px' },
     pageBtn: (active) => ({
@@ -211,24 +211,51 @@ const Historial = ({ session }) => {
             <tr>
               <th style={styles.th}>FECHA</th>
               {isAdmin && <th style={styles.th}>EMPRESA</th>}
+              {isAdmin && <th style={styles.th}>CORREO CLIENTE</th>} {/* Nueva columna de cabecera en Canjes */}
               <th style={styles.th}>DETALLE</th>
               <th style={{ ...styles.th, textAlign: 'right' }}>CANTIDAD</th>
             </tr>
           </thead>
           <tbody>
-            {canjesPaginados.map(c => (
-              <tr key={c.id}>
-                <td style={styles.td}>
-                  {/* ✅ Ajustado a tu columna 'fecha' */}
-                  {new Date(c.fecha).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                </td>
-                {isAdmin && <td style={styles.td}><span style={styles.companyText}>{c.profiles?.company || 'PARTICULAR'}</span></td>}
-                <td style={styles.td}>{c.descripcion}</td>
-                <td style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#e11d48' }}>
-                  -{c.cantidad.toLocaleString('es-CL')}
-                </td>
-              </tr>
-            ))}
+            {canjesPaginados.map(c => {
+              const fechaObj = new Date(c.fecha);
+              return (
+                <tr key={c.id}>
+                  {/* Fecha arriba y hora formateada abajo */}
+                  <td style={styles.td}>
+                    <div>
+                      {fechaObj.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </div>
+                    <span style={styles.timeText}>
+                      {fechaObj.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} p.m. hrs
+                    </span>
+                  </td>
+                  
+                  {/* Celda Empresa */}
+                  {isAdmin && (
+                    <td style={styles.td}>
+                      <span style={styles.companyText}>
+                        {c.profiles?.company || 'PARTICULAR'}
+                      </span>
+                    </td>
+                  )}
+                  
+                  {/* Nueva Celda: Correo del Cliente en columna independiente */}
+                  {isAdmin && (
+                    <td style={styles.td}>
+                      <span style={styles.emailText}>
+                        {c.profiles?.email || '—'}
+                      </span>
+                    </td>
+                  )}
+                  
+                  <td style={styles.td}>{c.descripcion}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontWeight: 'bold', color: '#e11d48' }}>
+                    -{c.cantidad.toLocaleString('es-CL')}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         {renderPagination(pagCanjes, totalPagCanjes, setPagCanjes)}
