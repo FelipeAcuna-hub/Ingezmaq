@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useOutletContext } from 'react-router-dom'; 
+import { useOutletContext, Link } from 'react-router-dom'; // Importamos Link de react-router-dom
 import { supabase } from '../supabaseClient';
 import {
   RefreshCw,
@@ -11,7 +11,9 @@ import {
   Inbox,
   ChevronLeft,
   ChevronRight,
-  Clock
+  Clock,
+  PlusCircle,
+  CreditCard
 } from 'lucide-react';
 
 const Historial = ({ session }) => {
@@ -111,6 +113,9 @@ const Historial = ({ session }) => {
     positiveSoft: darkMode ? 'rgba(74, 222, 128, 0.15)' : '#f0fdf4',
     positiveLine: darkMode ? 'rgba(74, 222, 128, 0.3)' : '#bbf7d0',
     negativeSoft: darkMode ? 'rgba(225, 29, 72, 0.15)' : '#fff1f3',
+    primary: '#2563eb',
+    primarySoft: darkMode ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff',
+    primaryLine: darkMode ? 'rgba(37, 99, 235, 0.3)' : '#bfdbfe',
   };
 
   const styles = {
@@ -121,6 +126,54 @@ const Historial = ({ session }) => {
       minHeight: '100vh',
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       transition: 'all 0.3s ease'
+    },
+    // --- APARTADO NUEVO: BANNER CARGAR CRÉDITOS ---
+    bannerCargar: {
+      backgroundColor: tokens.surface,
+      margin: '28px 30px 0',
+      padding: '24px 30px',
+      borderRadius: '16px',
+      border: `1px solid ${tokens.line}`,
+      boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.25)' : '0 1px 2px rgba(24,24,27,0.04), 0 8px 24px rgba(24,24,27,0.04)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: '16px',
+      transition: 'all 0.3s ease'
+    },
+    bannerInfo: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '16px'
+    },
+    bannerTitle: {
+      fontSize: '16px',
+      fontWeight: '700',
+      color: tokens.ink,
+      margin: 0,
+      letterSpacing: '-0.01em'
+    },
+    bannerSubtitle: {
+      fontSize: '12.5px',
+      color: tokens.inkSoft,
+      margin: '3px 0 0'
+    },
+    bannerBtn: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '8px',
+      backgroundColor: tokens.primary,
+      color: '#ffffff',
+      border: 'none',
+      padding: '12px 24px',
+      borderRadius: '10px',
+      fontSize: '13px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      textDecoration: 'none',
+      boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)',
+      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
     },
     card: {
       backgroundColor: tokens.surface,
@@ -365,11 +418,32 @@ const Historial = ({ session }) => {
         .hist-refresh-icon-spin {
           animation: histSpin 0.8s linear infinite;
         }
+        .hist-banner-btn:hover {
+          transform: translateY(-2px);
+          filter: brightness(1.1);
+        }
         @keyframes histSpin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
       `}</style>
+
+      {/* --- APARTADO SUPERIOR: BANNER DE ACCESO RÁPIDO PARA COMPRA DE CRÉDITOS --- */}
+      <div style={styles.bannerCargar}>
+        <div style={styles.bannerInfo}>
+          <div style={styles.iconBadge(tokens.primary, tokens.primarySoft)}>
+            <CreditCard size={18} strokeWidth={2.3} />
+          </div>
+          <div>
+            <h2 style={styles.bannerTitle}>¿Necesitas más créditos?</h2>
+            <p style={styles.bannerSubtitle}>Carga saldo a tu cuenta de forma inmediata y continúa procesando tus archivos.</p>
+          </div>
+        </div>
+        <Link to="/creditos" className="hist-banner-btn" style={styles.bannerBtn}>
+          <PlusCircle size={15} />
+          CARGAR CRÉDITOS
+        </Link>
+      </div>
 
       {/* --- SECCIÓN 1: RECARGAS (Tabla movimientos) --- */}
       <div style={styles.card}>
@@ -380,7 +454,7 @@ const Historial = ({ session }) => {
             </div>
             <div>
               <h2 style={styles.tituloSeccion}>
-                {isAdmin ? "Gestión global de recargas" : "Mi historial de recargas"}
+                {isAdmin ? "Gestión global de recargas" : "Mi historial de créditos"}
               </h2>
               <p style={styles.subTitulo}>
                 {movimientos.length} {movimientos.length === 1 ? 'registro' : 'registros'}
@@ -419,7 +493,6 @@ const Historial = ({ session }) => {
                       <span style={styles.fecha}>
                         {dateObj.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </span>
-                      {/* Agregada la hora debajo de la fecha para mantener consistencia con los canjes */}
                       <div style={styles.hora}>
                         <Clock size={10} />
                         {dateObj.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} hrs
@@ -468,7 +541,7 @@ const Historial = ({ session }) => {
             </div>
             <div>
               <h2 style={styles.tituloSeccion}>
-                {isAdmin ? "Gestión global de canjes" : "Mis canjes realizados"}
+                {isAdmin ? "Gestión global de canjes" : "Mis canjes de archivos realizados"}
               </h2>
               <p style={styles.subTitulo}>
                 {canjes.length} {canjes.length === 1 ? 'registro' : 'registros'}

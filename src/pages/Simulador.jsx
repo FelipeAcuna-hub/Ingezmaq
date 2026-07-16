@@ -1,17 +1,86 @@
 import React, { useState } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom'; // 1. Importamos el hook para el modo oscuro
+import { useNavigate, useOutletContext } from 'react-router-dom';
+
+// --- SUB-COMPONENTE INTERACTIVO PARA LAS CATEGORÍAS (ANIMACIÓN HOVER) ---
+const SimCategoryItem = ({ cat, isSelected, onClick, darkMode, baseCardStyle, selectedCardStyle }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const itemStyle = {
+    ...baseCardStyle,
+    ...(isSelected ? selectedCardStyle : {}),
+    backgroundColor: isSelected 
+      ? (darkMode ? '#1e3a8a' : '#eff6ff') 
+      : (isHovered ? (darkMode ? 'rgba(255,255,255,0.03)' : '#f8fafc') : (darkMode ? '#1e293b' : 'white')),
+    color: isSelected ? '#ffffff' : (darkMode ? '#e2e8f0' : '#000000'),
+    // Animación de desplazamiento horizontal sutil
+    transform: isHovered && !isSelected ? 'translateX(6px)' : 'translateX(0)',
+    borderLeft: isSelected ? '5px solid #2563eb' : (isHovered ? '1px solid #2563eb' : baseCardStyle.border),
+    boxShadow: isSelected ? '0 4px 12px rgba(37,99,235,0.15)' : '0 2px 4px rgba(0,0,0,0.05)',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+  };
+
+  return (
+    <div 
+      style={itemStyle} 
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <span style={{ 
+        fontWeight: 'bold',
+        color: isSelected ? '#ffffff' : (isHovered ? '#2563eb' : 'inherit')
+      }}>
+        › {cat}
+      </span>
+    </div>
+  );
+};
+
+// --- SUB-COMPONENTE INTERACTIVO PARA LAS OPCIONES DE SERVICIO (ANIMACIÓN HOVER) ---
+const SimServiceItem = ({ s, isSelected, onClick, darkMode, baseCardStyle, selectedCardStyle, priceBadgeStyle }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const itemStyle = {
+    ...baseCardStyle,
+    ...(isSelected ? selectedCardStyle : {}),
+    backgroundColor: isSelected 
+      ? (darkMode ? '#1e3a8a' : '#eff6ff') 
+      : (isHovered ? (darkMode ? 'rgba(255,255,255,0.03)' : '#f8fafc') : (darkMode ? '#1e293b' : 'white')),
+    color: isSelected ? '#ffffff' : (darkMode ? '#e2e8f0' : '#000000'),
+    // Animación de escala sutil y desplazamiento
+    transform: isHovered && !isSelected ? 'scale(1.01) translateX(3px)' : 'scale(1) translateX(0)',
+    borderLeft: isSelected ? '5px solid #2563eb' : (isHovered ? '1px solid #2563eb' : baseCardStyle.border),
+    boxShadow: isSelected ? '0 4px 12px rgba(37,99,235,0.15)' : '0 2px 4px rgba(0,0,0,0.05)',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+  };
+
+  const badgeStyle = {
+    ...priceBadgeStyle,
+    transform: isHovered ? 'scale(1.08)' : 'scale(1)',
+    backgroundColor: isSelected ? '#22c55e' : '#2563eb', // Cambia a verde al estar seleccionado para feedback visual
+    transition: 'all 0.15s ease'
+  };
+
+  return (
+    <div 
+      style={itemStyle} 
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <span style={{ fontWeight: 'bold', fontSize: '12px', maxWidth: '75%' }}>{s.name}</span>
+      <span style={badgeStyle}>+{s.price}</span>
+    </div>
+  );
+};
 
 const Simulador = () => {
   const navigate = useNavigate();
-  
-  // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
-  const { darkMode } = useOutletContext(); // 2. Extraemos darkMode
+  const { darkMode } = useOutletContext();
 
-  // 1. ESTADOS PARA FILTRADO DINÁMICO
   const [categoriaSel, setCategoriaSel] = useState(null);
   const [servicioSel, setServicioSel] = useState(null);
 
-  // 2. CONFIGURACIÓN COMPLETA (Categorías separadas para que sea dinámico)
   const SERVICIOS_CONFIG = {
     'REPRO GASOLINA': [
       { id: 'b_s1', name: 'STAGE 1 (INCLUYE VMAX OFF)', price: 14 },
@@ -56,7 +125,6 @@ const Simulador = () => {
 
   const totalPrice = servicioSel ? servicioSel.price : 0;
 
-  // --- CONFIGURACIÓN DE STYLES COMPATIBLES CON MODO OSCURO/CLARO ---
   const styles = {
     mainContent: { 
       padding: '40px', 
@@ -66,71 +134,84 @@ const Simulador = () => {
       transition: 'all 0.3s ease'
     },
     title: { 
-      fontSize: '28px', 
+      fontSize: '24px', 
       fontWeight: 'bold', 
       marginBottom: '30px', 
       display: 'flex', 
       alignItems: 'center', 
       gap: '15px',
-      color: darkMode ? '#ffffff' : '#000000'
+      color: darkMode ? '#ffffff' : '#000000',
+      letterSpacing: '-0.01em'
     },
     grid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '40px' },
     columnTitle: { 
-      fontSize: '20px', 
+      fontSize: '18px', 
       fontWeight: 'bold', 
       marginBottom: '20px',
-      color: darkMode ? '#f8fafc' : '#000000'
+      color: darkMode ? '#f8fafc' : '#000000',
+      letterSpacing: '-0.01em'
     },
     card: { 
       backgroundColor: darkMode ? '#1e293b' : 'white', 
-      padding: '15px 20px', 
-      borderRadius: '4px', 
-      marginBottom: '15px', 
+      padding: '16px 20px', 
+      borderRadius: '8px', 
+      marginBottom: '12px', 
       display: 'flex', 
       justifyContent: 'space-between', 
       alignItems: 'center', 
       cursor: 'pointer', 
-      border: darkMode ? '1px solid #334155' : '1px solid #ddd', 
-      boxShadow: '0 2px 4px rgba(0,0,0,0.05)', 
-      transition: '0.3s',
+      border: darkMode ? '1px solid #334155' : '1px solid #ececf0', 
       color: darkMode ? '#e2e8f0' : '#000000'
     },
     cardSelected: { 
       borderColor: '#2563eb', 
-      backgroundColor: darkMode ? '#1e3a8a' : '#eff6ff', 
-      borderLeft: '5px solid #2563eb',
       color: '#ffffff'
     },
-    priceBadge: { backgroundColor: '#2563eb', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '14px' },
+    priceBadge: { color: 'white', padding: '4px 10px', borderRadius: '6px', fontWeight: 'bold', fontSize: '13px' },
     totalBox: { 
       backgroundColor: darkMode ? '#0f172a' : 'black', 
       color: 'white', 
       padding: '30px', 
-      borderRadius: '8px', 
+      borderRadius: '12px', 
       display: 'flex', 
       justifyContent: 'space-between', 
       alignItems: 'center', 
       marginTop: '20px',
-      border: darkMode ? '1px solid #334155' : 'none'
+      border: darkMode ? '1px solid #334155' : 'none',
+      boxShadow: '0 4px 14px rgba(0,0,0,0.1)'
     },
-    btnCargar: { backgroundColor: '#2563eb', color: 'white', padding: '15px 40px', border: 'none', borderRadius: '50px', fontWeight: 'bold', fontSize: '18px', cursor: 'pointer', alignSelf: 'flex-end', marginTop: '40px' },
+    btnCargar: { 
+      backgroundColor: '#2563eb', 
+      color: 'white', 
+      padding: '14px 40px', 
+      border: 'none', 
+      borderRadius: '10px', 
+      fontWeight: 'bold', 
+      fontSize: '15px', 
+      cursor: 'pointer', 
+      alignSelf: 'stretch', 
+      marginTop: '30px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.02em',
+      transition: 'all 0.2s ease'
+    },
     infoBox: { 
-      backgroundColor: darkMode ? 'rgba(254, 249, 195, 0.1)' : '#fef9c3', 
+      backgroundColor: darkMode ? 'rgba(254, 249, 195, 0.08)' : '#fef9c3', 
       padding: '20px', 
-      borderRadius: '4px', 
-      border: darkMode ? '1px solid rgba(254, 249, 195, 0.3)' : '1px solid #fde047', 
+      borderRadius: '8px', 
+      border: darkMode ? '1px solid rgba(254, 249, 195, 0.2)' : '1px solid #fde047', 
       color: darkMode ? '#fef08a' : '#854d0e', 
       fontSize: '13px', 
       lineHeight: '1.5' 
     },
     instruccionBox: {
-      backgroundColor: darkMode ? '#1e293b' : '#d1eaf0', 
+      backgroundColor: darkMode ? 'rgba(56, 189, 248, 0.1)' : '#d1eaf0', 
       padding: '15px', 
-      borderRadius: '4px', 
+      borderRadius: '8px', 
       marginBottom: '20px', 
       fontSize: '13px', 
       color: darkMode ? '#38bdf8' : '#1e5a69',
-      border: darkMode ? '1px solid #334155' : 'none'
+      border: darkMode ? '1px solid rgba(56, 189, 248, 0.2)' : 'none'
     }
   };
 
@@ -146,16 +227,18 @@ const Simulador = () => {
             Selecciona la categoría principal.
           </div>
           {Object.keys(SERVICIOS_CONFIG).map(cat => (
-            <div 
-              key={cat} 
-              style={{ ...styles.card, ...(categoriaSel === cat ? styles.cardSelected : {}) }}
+            <SimCategoryItem
+              key={cat}
+              cat={cat}
+              isSelected={categoriaSel === cat}
+              darkMode={darkMode}
+              baseCardStyle={styles.card}
+              selectedCardStyle={styles.cardSelected}
               onClick={() => {
                 setCategoriaSel(cat);
                 setServicioSel(null); 
               }}
-            >
-              <span style={{ fontWeight: 'bold' }}>› {cat}</span>
-            </div>
+            />
           ))}
         </div>
 
@@ -164,17 +247,19 @@ const Simulador = () => {
           <h3 style={styles.columnTitle}>2. OPCIONES</h3>
           {categoriaSel ? (
             SERVICIOS_CONFIG[categoriaSel].map(s => (
-              <div 
-                key={s.id} 
-                style={{ ...styles.card, ...(servicioSel?.id === s.id ? styles.cardSelected : {}) }}
+              <SimServiceItem
+                key={s.id}
+                s={s}
+                isSelected={servicioSel?.id === s.id}
+                darkMode={darkMode}
+                baseCardStyle={styles.card}
+                selectedCardStyle={styles.cardSelected}
+                priceBadgeStyle={styles.priceBadge}
                 onClick={() => setServicioSel(s)}
-              >
-                <span style={{ fontWeight: 'bold', fontSize: '12px', maxWidth: '75%' }}>{s.name}</span>
-                <span style={styles.priceBadge}>+{s.price}</span>
-              </div>
+              />
             ))
           ) : (
-            <div style={{ color: darkMode ? '#64748b' : '#999', textAlign: 'center', marginTop: '50px', fontStyle: 'italic' }}>
+            <div style={{ color: darkMode ? '#64748b' : '#999', textAlign: 'center', marginTop: '50px', fontStyle: 'italic', fontSize: '13px' }}>
               Selecciona una categoría a la izquierda para ver las opciones...
             </div>
           )}
@@ -188,17 +273,21 @@ const Simulador = () => {
           </div>
           
           <div style={styles.totalBox}>
-            <span style={{ fontSize: '32px', fontWeight: 'bold' }}>Créditos</span>
-            <span style={{ fontSize: '48px', fontWeight: 'bold', backgroundColor: '#2563eb', padding: '0 20px', borderRadius: '8px' }}>
+            <span style={{ fontSize: '24px', fontWeight: 'bold', letterSpacing: '-0.01em' }}>Créditos</span>
+            <span style={{ fontSize: '38px', fontWeight: 'bold', backgroundColor: '#2563eb', padding: '4px 24px', borderRadius: '10px' }}>
               {totalPrice}
             </span>
           </div>
 
           <button 
-            style={{ ...styles.btnCargar, opacity: servicioSel ? 1 : 0.5 }} 
+            className="cred-btn"
+            style={{ 
+              ...styles.btnCargar, 
+              opacity: servicioSel ? 1 : 0.4,
+              cursor: servicioSel ? 'pointer' : 'not-allowed'
+            }} 
             onClick={() => {
               if (servicioSel) {
-                // REDIRECCIÓN CON ESTADO: Enviamos el nombre y el precio
                 navigate('/upload', { 
                   state: { 
                     servicio: servicioSel

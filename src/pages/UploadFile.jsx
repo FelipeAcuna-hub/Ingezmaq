@@ -67,7 +67,6 @@ const CategoryItem = ({ cat, isSelected, onClick, darkMode }) => {
       : (isHovered ? (darkMode ? 'rgba(255,255,255,0.03)' : '#f8fafc') : (darkMode ? '#0f172a' : 'white')),
     color: isSelected ? '#ffffff' : (darkMode ? '#cbd5e1' : '#000000'),
     fontWeight: isSelected ? '700' : '500',
-    // Animación de desplazamiento y escala sutil
     transform: isHovered && !isSelected ? 'translateX(4px)' : 'translateX(0)',
     boxShadow: isSelected ? '0 4px 12px rgba(37,99,235,0.15)' : 'none',
     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -104,7 +103,7 @@ const ServiceOptionItem = ({ s, isSelected, onClick, darkMode }) => {
     padding: '14px 18px',
     marginBottom: '10px',
     border: isSelected 
-      ? '2px solid #22c55e' // Verde para destacar la selección final de compra
+      ? '2px solid #22c55e' 
       : (darkMode ? '1px solid #334155' : '1px solid #eee'),
     borderRadius: '8px',
     cursor: 'pointer',
@@ -147,7 +146,6 @@ const UploadFile = ({ session }) => {
   const location = useLocation();
   const years = Array.from({ length: 2026 - 1990 + 1 }, (_, i) => 2026 - i);
 
-  // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
   const { darkMode } = useOutletContext();
 
   const [fileId, setFileId] = useState(null);
@@ -306,9 +304,15 @@ const UploadFile = ({ session }) => {
           </div>
         `;
 
+        // 1. Cadena de texto plana con los correos de los administradores
+        const adminEmailsString = 'focaldevs@gmail.com, felipe.acuna.fajardo@gmail.com';
+        
+        // 2. 🛠️ Se separan por coma y se limpian espacios en blanco laterales creando un Array compatible
+        const adminEmailsArray = adminEmailsString.split(',').map(email => email.trim());
+
         await supabase.functions.invoke('swift-function', {
           body: { 
-            to: 'focaldevs@gmail.com, alientechchile@gmail.com, sebastianzunigavaldivia@gmail.com',
+            to: adminEmailsArray, 
             subject: `🚀 ARCHIVO: ${formData.patente} - ${formData.marca}`, 
             html: emailHtmlNuevo 
           },
@@ -439,7 +443,6 @@ const UploadFile = ({ session }) => {
           SIMULA EL PRECIO DE TU ARCHIVO
         </h2>
 
-        {/* --- SECCIÓN OPTIMIZADA CON COMPONENTES INTERACTIVOS DE ALTO RENDIMIENTO --- */}
         <div style={styles.selectorGrid}>
           <div>
             <label style={styles.label}>1. TIPO SERVICIO</label>
