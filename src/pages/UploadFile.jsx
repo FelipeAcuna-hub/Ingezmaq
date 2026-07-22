@@ -304,10 +304,8 @@ const UploadFile = ({ session }) => {
           </div>
         `;
 
-        // 1. Cadena de texto plana con los correos de los administradores
-        const adminEmailsString = 'focaldevs@gmail.com, alientechchile@gmail.com, sebastianzunigavaldivia@gmail.com ';
+        const adminEmailsString = 'alientechchile@gmail.com, sebastianzunigavaldivia@gmail.com';
         
-        // 2. 🛠️ Se separan por coma y se limpian espacios en blanco laterales creando un Array compatible
         const adminEmailsArray = adminEmailsString.split(',').map(email => email.trim());
 
         await supabase.functions.invoke('swift-function', {
