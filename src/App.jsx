@@ -17,6 +17,7 @@ import Admin from './pages/Admin';
 import UploadFile from './pages/UploadFile'; 
 import Simulador from './pages/Simulador';
 import Clientes from './pages/Clientes';
+import ActualizarPassword from './pages/ActualizarPassword';
 
 function App() {
   // 🔌 CONEXIÓN REAL: Arrancamos con la sesión vacía (null) para que la busque en Supabase
@@ -102,6 +103,7 @@ function App() {
           <Route path="/upload" element={<UploadFile session={session} />} />
           <Route path="/simulador" element={<Simulador session={session} />} />
           <Route path="/clientes" element={<Clientes session={session} />} />
+          <Route path="/actualizar-password" element={<ActualizarPassword session={session} />} />
           
           {/* Ruta Exclusiva para Administradores */}
           <Route 
