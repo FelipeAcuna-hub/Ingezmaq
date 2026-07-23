@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom'; // 1. Importamos el hook para el modo oscuro
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 const Tickets = ({ session }) => {
   const [tickets, setTickets] = useState([]);
+  const [clientes, setClientes] = useState([]); // Lista de clientes para el select admin
+  const [selectedClienteId, setSelectedClienteId] = useState('');
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   
@@ -17,8 +19,7 @@ const Tickets = ({ session }) => {
   const [mensajeInicial, setMensajeInicial] = useState('');
   const [nuevoTicketFile, setNuevoTicketFile] = useState(null);
 
-  // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
-  const { darkMode } = useOutletContext(); // 2. Extraemos darkMode
+  const { darkMode } = useOutletContext();
 
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
@@ -27,13 +28,31 @@ const Tickets = ({ session }) => {
   ];
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
 
-  useEffect(() => { fetchTickets(); }, [session]);
+  useEffect(() => { 
+    fetchTickets(); 
+    if (isAdmin) {
+      fetchClientes();
+    }
+  }, [session, isAdmin]);
   
   useEffect(() => { 
     if (selectedTicket?.id) {
       fetchMessages(selectedTicket.id); 
     }
   }, [selectedTicket?.id]);
+
+  const fetchClientes = async () => {
+    // Obtenemos los perfiles para que el admin escoja el destinatario
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, company, full_name')
+      .order('email', { ascending: true });
+
+    if (!error && data) {
+      setClientes(data);
+      if (data.length > 0) setSelectedClienteId(data[0].id);
+    }
+  };
 
   const fetchTickets = async () => {
     setLoading(true);
@@ -49,13 +68,17 @@ const Tickets = ({ session }) => {
   };
 
   const fetchMessages = async (ticketId) => {
-    const { data } = await supabase.from('ticket_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
+    const { data } = await supabase
+      .from('ticket_messages')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .order('created_at', { ascending: true });
     if (data) setMessages(data);
   };
 
   const abrirWhatsappSoporte = () => {
-    const telefonoSoporte = "56995161488";
-    const texto = encodeURIComponent("Hola *Torres Aguayo MMS* 🏎️, necesito soporte técnico con un ticket.");
+    const telefonoSoporte = "56997525948";
+    const texto = encodeURIComponent("Hola *Chiptuning* 🏎️, necesito soporte técnico para un archivo.");
     window.open(`https://wa.me/${telefonoSoporte}?text=${texto}`, '_blank');
   };
 
@@ -143,6 +166,14 @@ const Tickets = ({ session }) => {
     e.preventDefault();
     let uploadedFileUrl = null;
 
+    // Determinamos quién es el dueño del ticket (El usuario logueado o el cliente seleccionado por el admin)
+    const targetUserId = isAdmin ? selectedClienteId : session.user.id;
+
+    if (!targetUserId) {
+      alert("Por favor selecciona un cliente para el ticket.");
+      return;
+    }
+
     if (nuevoTicketFile) {
       try {
         const cleanName = nuevoTicketFile.name
@@ -151,7 +182,7 @@ const Tickets = ({ session }) => {
           .replace(/[{}]/g, '');
 
         const folderName = Date.now();
-        const filePath = `${session.user.id}/${folderName}_${cleanName}`;
+        const filePath = `${targetUserId}/${folderName}_${cleanName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('archivos-tickets')
@@ -171,7 +202,7 @@ const Tickets = ({ session }) => {
     }
 
     const { error } = await supabase.from('tickets').insert({
-      user_id: session.user.id,
+      user_id: targetUserId,
       asunto,
       mensaje_inicial: mensajeInicial,
       estado: 'Pendiente',
@@ -179,16 +210,21 @@ const Tickets = ({ session }) => {
     });
 
     if (!error) {
-      alert("✅ Ticket enviado.");
+      alert("✅ Ticket enviado exitosamente.");
       const linkAdjuntoHtml = uploadedFileUrl 
         ? `<p><strong>📎 Archivo Adjunto Inicial:</strong> <a href="${uploadedFileUrl}">Descargar adjunto</a></p>` 
         : '';
 
-      await enviarNotificacionEmail(
-        ADMIN_EMAILS.join(','), 
-        `NUEVO TICKET: ${asunto}`, 
-        `<p>${mensajeInicial}</p>${linkAdjuntoHtml}`
-      );
+      const clienteTarget = clientes.find(c => c.id === targetUserId);
+      const emailNotif = isAdmin ? clienteTarget?.email : ADMIN_EMAILS.join(',');
+
+      if (emailNotif) {
+        await enviarNotificacionEmail(
+          emailNotif, 
+          `NUEVO TICKET: ${asunto}`, 
+          `<p>${mensajeInicial}</p>${linkAdjuntoHtml}`
+        );
+      }
       
       setShowModal(false); 
       setAsunto(''); 
@@ -200,7 +236,13 @@ const Tickets = ({ session }) => {
     }
   };
 
-  // --- CONFIGURACIÓN DE STYLES COMPATIBLES CON MODO OSCURO/CLARO ---
+  // Función helper para dar formato a fecha y hora
+  const formatDateTime = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return `${date.toLocaleDateString('es-CL')} ${date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} hrs`;
+  };
+
   const styles = {
     mainContent: { 
       flex: 1, 
@@ -248,6 +290,13 @@ const Tickets = ({ session }) => {
       padding: '10px 15px', borderRadius: '10px', marginBottom: '10px', maxWidth: '80%', fontSize: '14px',
       wordBreak: 'break-word', overflowWrap: 'anywhere', display: 'flex', flexDirection: 'column'
     }),
+    messageDate: (isAdminMsg) => ({
+      fontSize: '10px',
+      marginTop: '5px',
+      alignSelf: 'flex-end',
+      opacity: 0.8,
+      color: isAdminMsg ? (darkMode ? '#94a3b8' : '#666') : '#f8fafc'
+    }),
     tableHeader: {
       textAlign: 'left', 
       borderBottom: darkMode ? '2px solid #334155' : '2px solid #eee', 
@@ -257,9 +306,7 @@ const Tickets = ({ session }) => {
     tableRow: {
       borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee'
     },
-    thCell: {
-      padding: '12px'
-    },
+    thCell: { padding: '12px' },
     tdCell: {
       padding: '12px',
       fontSize: '13px',
@@ -293,9 +340,9 @@ const Tickets = ({ session }) => {
             <button style={styles.btnWhatsapp} onClick={abrirWhatsappSoporte}>
               <span style={{ fontSize: '18px' }}>💬</span> SOPORTE POR WHATSAPP
             </button>
-            {!isAdmin && (
-              <button style={styles.btnTicket} onClick={() => setShowModal(true)}>NUEVO TICKET</button>
-            )}
+            <button style={styles.btnTicket} onClick={() => setShowModal(true)}>
+              {isAdmin ? "NUEVO TICKET ADMIN" : "NUEVO TICKET"}
+            </button>
           </div>
         </div>
       </div>
@@ -314,7 +361,7 @@ const Tickets = ({ session }) => {
           <tbody>
             {tickets.map(t => (
               <tr key={t.id} style={styles.tableRow}>
-                <td style={styles.tdCell}>{new Date(t.created_at).toLocaleDateString()}</td>
+                <td style={styles.tdCell}>{formatDateTime(t.created_at)}</td>
                 <td style={styles.tdCell}><strong>{t.asunto}</strong></td>
                 {isAdmin && (
                   <td style={styles.tdCell}>
@@ -393,6 +440,7 @@ const Tickets = ({ session }) => {
               flexDirection: 'column', 
               backgroundColor: darkMode ? '#0f172a' : '#f9f9f9' 
             }}>
+              {/* Mensaje inicial del ticket */}
               <div style={styles.message(false)}>
                 <strong>Inicio:</strong><br/>{selectedTicket.mensaje_inicial}
                 {selectedTicket.file_url && (
@@ -402,8 +450,12 @@ const Tickets = ({ session }) => {
                     </a>
                   </div>
                 )}
+                <span style={styles.messageDate(false)}>
+                  {formatDateTime(selectedTicket.created_at)}
+                </span>
               </div>
               
+              {/* Resto de mensajes en el chat */}
               {messages.map(m => (
                 <div key={m.id} style={styles.message(m.is_admin_reply)}>
                   {m.mensaje}
@@ -414,6 +466,9 @@ const Tickets = ({ session }) => {
                       </a>
                     </div>
                   )}
+                  <span style={styles.messageDate(m.is_admin_reply)}>
+                    {formatDateTime(m.created_at)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -452,8 +507,29 @@ const Tickets = ({ session }) => {
       {showModal && (
         <div style={styles.modal}>
           <div style={{ ...styles.card, width: '400px', border: darkMode ? '1px solid #334155' : 'none' }}>
-            <h3 style={{ color: darkMode ? '#ffffff' : '#333333' }}>Nueva Consulta</h3>
+            <h3 style={{ color: darkMode ? '#ffffff' : '#333333' }}>
+              {isAdmin ? "Crear Ticket de Administrador" : "Nueva Consulta"}
+            </h3>
             <form onSubmit={crearTicket}>
+              {/* SI ES ADMIN, MOSTRAMOS LA LISTA DE CLIENTES EN LA PARTE SUPERIOR */}
+              {isAdmin && (
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={styles.labelStyle}>SELECCIONAR CLIENTE</label>
+                  <select 
+                    value={selectedClienteId} 
+                    onChange={(e) => setSelectedClienteId(e.target.value)}
+                    style={styles.inputStyle}
+                    required
+                  >
+                    {clientes.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.company ? `${c.company} (${c.email})` : c.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <label style={styles.labelStyle}>ASUNTO</label>
               <input style={styles.inputStyle} required value={asunto} onChange={e => setAsunto(e.target.value)} />
               

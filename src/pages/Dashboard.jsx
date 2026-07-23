@@ -1,7 +1,8 @@
-import React, { useState } from 'react'; // 🚀 Añadido useState para controlar el hover
-import { Link, useOutletContext } from 'react-router-dom'; // 1. Importamos el hook para el modo oscuro
+import React, { useState, useEffect } from 'react';
+import { Link, useOutletContext } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
-// --- ICONOS SVG EN LÍNEA (sin dependencias externas) ---
+// --- ICONOS SVG EN LÍNEA ---
 const Icon = {
   Arrow: (props) => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -42,15 +43,49 @@ const Icon = {
       <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
       <circle cx="12" cy="10" r="3" />
     </svg>
+  ),
+  Clock: (props) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  ),
+  Bell: (props) => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
   )
 };
 
 const Dashboard = ({ session }) => {
-  // 🔄 Estado para saber qué botón tiene el cursor encima ('archivos', 'creditos', 'tickets' o null)
   const [hoveredBtn, setHoveredBtn] = useState(null);
+  const [activeTicketAlert, setActiveTicketAlert] = useState(null);
 
-  // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
-  const { darkMode } = useOutletContext(); // 2. Extraemos darkMode
+  const { darkMode } = useOutletContext();
+
+  // 🔔 CONSULTA SI EXISTE UN TICKET EXCLUSIVAMENTE EN ESTADO 'PENDIENTE'
+  useEffect(() => {
+    const checkActiveTickets = async () => {
+      if (!session?.user?.id) return;
+
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('id, asunto, estado')
+        .eq('user_id', session.user.id)
+        .eq('estado', 'Pendiente') // 👈 Solo busca tickets con estado 'Pendiente'
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        setActiveTicketAlert(data[0]);
+      } else {
+        setActiveTicketAlert(null); // Si no hay pendientes, limpia la alerta
+      }
+    };
+
+    checkActiveTickets();
+  }, [session]);
 
   const styles = {
     container: {
@@ -65,6 +100,51 @@ const Dashboard = ({ session }) => {
       justifyContent: 'space-between',
       transition: 'all 0.3s ease'
     },
+
+    // 🔔 BANNER DE NOTIFICACIÓN TICKET PENDIENTE
+    ticketNoticeBanner: {
+      backgroundColor: darkMode ? 'rgba(225, 29, 72, 0.15)' : '#ffe4e6',
+      border: '1px solid #f43f5e',
+      borderRadius: '14px',
+      padding: '16px 24px',
+      marginBottom: '24px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: '15px',
+      boxShadow: '0 4px 15px rgba(225, 29, 72, 0.2)'
+    },
+    ticketNoticeInfo: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '14px'
+    },
+    ticketNoticeTitle: {
+      margin: 0,
+      fontSize: '14px',
+      fontWeight: '700',
+      color: darkMode ? '#fecdd3' : '#881337'
+    },
+    ticketNoticeSubtitle: {
+      margin: '2px 0 0 0',
+      fontSize: '12.5px',
+      color: darkMode ? '#fda4af' : '#9f1239'
+    },
+    ticketNoticeBtn: {
+      backgroundColor: '#e11d48',
+      color: '#ffffff',
+      padding: '8px 16px',
+      borderRadius: '8px',
+      fontSize: '12px',
+      fontWeight: '700',
+      textDecoration: 'none',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '6px',
+      boxShadow: '0 2px 8px rgba(225,29,72,0.4)'
+    },
+
     heroBanner: {
       background: darkMode
         ? 'radial-gradient(circle at 15% 20%, #1e293b 0%, #0f172a 55%)'
@@ -173,7 +253,6 @@ const Dashboard = ({ session }) => {
       textAlign: 'left'
     },
 
-    // 🚀 Sistema dinámico con animaciones de transformación y sombras dinámicas en el Hover
     btnAction: (color, isHovered) => ({
       backgroundColor: color,
       color: 'white',
@@ -222,8 +301,7 @@ const Dashboard = ({ session }) => {
     },
     footerBrandAccent: {
       color: '#2563eb',
-      fontWeight: '400',
-      marginLeft: '8px'
+      fontWeight: '400'
     },
     footerBrandDesc: {
       fontSize: '13px',
@@ -288,10 +366,36 @@ const Dashboard = ({ session }) => {
         .dash-icon-wrapper { transition: transform 0.2s ease; }
         .dash-btn-arrow { transition: transform 0.2s ease; }
         .dash-btn:hover .dash-btn-arrow { transform: translateX(3px); }
+        @keyframes bellPulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        .bell-icon-pulse { animation: bellPulse 1.5s infinite; color: #e11d48; }
       `}</style>
 
       {/* CUERPO PRINCIPAL DEL DASHBOARD */}
       <div>
+
+        {/* 🔔 BANNER DE ALERTA DE TICKET PENDIENTE */}
+        {activeTicketAlert && (
+          <div style={styles.ticketNoticeBanner}>
+            <div style={styles.ticketNoticeInfo}>
+              <div className="bell-icon-pulse">
+                <Icon.Bell />
+              </div>
+              <div>
+                <h4 style={styles.ticketNoticeTitle}>
+                  Tienes un ticket pendiente: "{activeTicketAlert.asunto}"
+                </h4>
+                <p style={styles.ticketNoticeSubtitle}>
+                  Estado actual: <strong>PENDIENTE</strong>. Haz clic para ver los detalles y comunicarte con soporte.
+                </p>
+              </div>
+            </div>
+            <Link to="/tickets" style={styles.ticketNoticeBtn}>
+              IR AL CHAT
+              <Icon.Arrow />
+            </Link>
+          </div>
+        )}
+
         {/* 1. HERO BANNER REDISEÑADO */}
         <div style={styles.heroBanner}>
           <div style={styles.heroGlowOne} />
@@ -302,7 +406,7 @@ const Dashboard = ({ session }) => {
               Plataforma Reseller
             </div>
             <h1 style={styles.heroTitle}>Dealer Online Global</h1>
-            <p style={styles.heroSubtitle}>INGEZMAQ MOTORSPORT — Portal de Gestión Técnica Avanzada</p>
+            <p style={styles.heroSubtitle}>CHIPTUNING — Portal de Gestión Técnica Avanzada</p>
           </div>
         </div>
 
@@ -387,17 +491,17 @@ const Dashboard = ({ session }) => {
         </div>
       </div>
 
-      {/* 3. 🚀 FOOTER CORPORATIVO AVANZADO INGEZMAQ */}
+      {/* 3. FOOTER CORPORATIVO */}
       <footer style={styles.footerContainer}>
         <div style={styles.footerGrid}>
 
           {/* Columna 1: Branding */}
           <div>
             <h4 style={styles.footerBrandTitle}>
-              INGEZMAQ<span style={styles.footerBrandAccent}>MOTORSPORT</span>
+              CHIP<span style={styles.footerBrandAccent}>TUNING</span>
             </h4>
             <p style={styles.footerBrandDesc}>
-              Plataforma de traspaso de archivos para Distribuidores.
+              Plataforma de gestión de archivos para Partners.
             </p>
           </div>
 
@@ -405,14 +509,14 @@ const Dashboard = ({ session }) => {
           <div>
             <h4 style={styles.footerSectionTitle}>Contacto Técnico</h4>
             <a
-              href="https://wa.me/56984996539"
+              href="https://wa.me/56997525948"
               target="_blank"
               rel="noreferrer"
               style={styles.footerContactItem}
               onMouseEnter={(e) => e.currentTarget.style.color = '#25d366'}
               onMouseLeave={(e) => e.currentTarget.style.color = darkMode ? '#94a3b8' : '#475569'}
             >
-              <Icon.Whatsapp /> +56 9 8499 6539 (WhatsApp)
+              <Icon.Whatsapp /> +56 9 9752 5948 (WhatsApp)
             </a>
             <a
               href="mailto:alientechchile@gmail.com"
@@ -422,6 +526,9 @@ const Dashboard = ({ session }) => {
             >
               <Icon.Mail /> alientechchile@gmail.com
             </a>
+            <div style={styles.footerContactItem}>
+              <Icon.Clock /> Lun - Vie: 9:00 AM - 6:30 PM
+            </div>
             <div style={styles.footerContactItem}>
               <Icon.Pin /> Chile
             </div>
@@ -446,10 +553,10 @@ const Dashboard = ({ session }) => {
 
         </div>
 
-        {/* Barra inferior de Copyright y Créditos */}
+        {/* Barra inferior */}
         <div style={styles.footerBottom}>
           <div>
-            © 2026 INGEZMAQ WEB v1.5 — TODOS LOS DERECHOS RESERVADOS
+            © 2026 CHIPTUNING WEB v1.2 — TODOS LOS DERECHOS RESERVADOS
           </div>
           <div>
             DESARROLLADO POR <a href="https://focaldev.cl" target="_blank" rel="noreferrer" style={styles.focaldevLink}>FOCALDEV</a>

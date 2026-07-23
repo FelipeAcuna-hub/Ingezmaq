@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
-import logoImg from '../../img/logoingezmaq.png'; 
+import logoImg from '../../img/logo.png'; 
 
 const Login = () => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -173,7 +173,7 @@ const Login = () => {
     <div style={styles.container}>
       <div style={styles.loginBox}>
         <div style={styles.logoContainer}>
-          <img src={logoImg} alt="Ingezmaq Portal" style={styles.logoImg} />
+          <img src={logoImg} alt="Chiptuning Portal" style={styles.logoImg} />
         </div>
         <div style={styles.subtitle}>{isRegistering ? 'Crea tu cuenta de Distribuidor' : 'Portal Distribuidores'}</div>
         <form onSubmit={handleAuth}>

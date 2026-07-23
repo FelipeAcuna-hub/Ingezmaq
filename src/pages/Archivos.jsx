@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom'; // 1. Importamos el hook para el modo oscuro
+import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
 const Archivos = ({ session }) => {
@@ -12,8 +12,7 @@ const Archivos = ({ session }) => {
   const [itemsPorPagina] = useState(8);
   const [statusFilter, setStatusFilter] = useState('todos');
 
-  // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
-  const { darkMode } = useOutletContext(); // 2. Extraemos darkMode
+  const { darkMode } = useOutletContext();
 
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
@@ -60,7 +59,6 @@ const Archivos = ({ session }) => {
     fetchArchivos();
   }, [session, isAdmin]);
 
-  // --- FUNCIÓN PARA DESCARGA LIMPIA FORZADA ---
   const handleForceDownload = async (url) => {
     if (!url) return;
     try {
@@ -70,7 +68,6 @@ const Archivos = ({ session }) => {
       const link = document.createElement('a');
       link.href = blobUrl;
 
-      // Limpiamos el nombre del archivo de prefijos y timestamps
       const baseName = url.split('/').pop();
       const cleanName = baseName.replace(/^\d+_/, '').replace(/^(ID_|MAPA_|PASS_|MOD_|EXTRA_)/, '');
 
@@ -81,7 +78,6 @@ const Archivos = ({ session }) => {
       window.URL.revokeObjectURL(blobUrl);
     } catch (e) {
       console.error("Error en descarga:", e);
-      // Fallback si falla el blob
       window.open(url, '_blank');
     }
   };
@@ -145,6 +141,7 @@ const Archivos = ({ session }) => {
     }
   };
 
+  // --- SUBIR ARCHIVO MODIFICADO / EXTRA CON TIMESTAMP ---
   const handleUploadModificado = async (archivoId, file, patente, clienteEmail, campoDestino = 'mod_file_url') => {
     let nota = null;
     if (campoDestino === 'mod_file_url') {
@@ -168,8 +165,17 @@ const Archivos = ({ session }) => {
         .from('archivos-vehiculos')
         .getPublicUrl(storagePath);
 
+      // 1. Mapeamos la columna correcta según el archivo que se está subiendo (MOD, V2 o V3)
+      let campoFecha = 'mod_uploaded_at';
+      if (campoDestino === 'mod_file_extra_url') {
+        campoFecha = 'mod_extra_uploaded_at';
+      } else if (campoDestino === 'mod_v3_file_url') {
+        campoFecha = 'mod_v3_uploaded_at'; // 👈 Se asigna la fecha correspondiente a V3
+      }
+
       const updateData = {
         [campoDestino]: publicUrl,
+        [campoFecha]: new Date().toISOString(), // 👈 Registramos la hora y fecha exacta
         estado: 'completado'
       };
 
@@ -222,13 +228,13 @@ const Archivos = ({ session }) => {
       if (clienteEmail) {
         const subjectText = nuevoEstado === 'completado'
           ? `✅ Archivo Listo - Patente ${patente}`
-          : `🔍 Archivo en Revisión - Patente ${patente}`;
+          : `🔍 Archivo en gestión - Patente ${patente}`;
 
         const emailHtml = `
           <div style="font-family: 'Helvetica', Arial, sans-serif; background-color: #f9f9f9; padding: 40px 0;">
             <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
               <div style="background-color: #000000; padding: 20px; text-align: center;">
-                <h1 style="color: #2563eb; margin: 0; font-size: 24px; letter-spacing: 2px;">INGEZMAQ SYSTEM</h1>
+                <h1 style="color: #2563eb; margin: 0; font-size: 24px; letter-spacing: 2px;">CHIPTUNING SYSTEM</h1>
               </div>
               <div style="padding: 30px; line-height: 1.6; color: #333;">
                 <h2 style="color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px;">Actualización de Requerimiento</h2>
@@ -257,128 +263,121 @@ const Archivos = ({ session }) => {
     }
   };
 
-  // --- CONFIGURACIÓN DE STYLES COMPATIBLES CON MODO OSCURO/CLARO ---
   const styles = {
-    mainContent: { 
-      flex: 1, 
-      display: 'flex', 
-      flexDirection: 'column', 
-      backgroundColor: darkMode ? '#0f172a' : '#f3f4f6', 
-      width: '100%', 
+    mainContent: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      backgroundColor: darkMode ? '#0f172a' : '#f3f4f6',
+      width: '100%',
       minHeight: '100vh',
       transition: 'all 0.3s ease'
     },
-    tableCard: { 
-      backgroundColor: darkMode ? '#1e293b' : 'white', 
-      margin: '10px', 
-      padding: '15px', 
-      borderRadius: '4px', 
+    tableCard: {
+      backgroundColor: darkMode ? '#1e293b' : 'white',
+      margin: '10px',
+      padding: '15px',
+      borderRadius: '4px',
       boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.3)' : '0 2px 10px rgba(0,0,0,0.05)',
       color: darkMode ? '#ffffff' : '#333333',
       transition: 'all 0.3s ease'
     },
     responsiveContainer: { width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', marginBottom: '20px' },
     table: { width: '100%', borderCollapse: 'collapse', marginTop: '20px', minWidth: '800px' },
-    th: { 
-      textAlign: 'left', 
-      padding: '12px', 
-      borderBottom: darkMode ? '2px solid #334155' : '2px solid #eee', 
-      fontSize: '10px', 
-      color: darkMode ? '#94a3b8' : '#666', 
-      textTransform: 'uppercase', 
-      fontWeight: 'bold' 
+    th: {
+      textAlign: 'left',
+      padding: '12px',
+      borderBottom: darkMode ? '2px solid #334155' : '2px solid #eee',
+      fontSize: '10px',
+      color: darkMode ? '#94a3b8' : '#666',
+      textTransform: 'uppercase',
+      fontWeight: 'bold'
     },
-    td: { 
-      padding: '12px', 
-      borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', 
+    td: {
+      padding: '12px',
+      borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee',
       fontSize: '12px',
       color: darkMode ? '#e2e8f0' : '#333333'
     },
     statusBadge: { padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', color: 'white', textTransform: 'uppercase', whiteSpace: 'nowrap' },
-    selectAdmin: { 
-      padding: '5px', 
-      fontSize: '10px', 
-      fontWeight: 'bold', 
-      borderRadius: '4px', 
-      border: darkMode ? '1px solid #475569' : '1px solid #ddd', 
-      cursor: 'pointer', 
-      outline: 'none', 
+    selectAdmin: {
+      padding: '5px',
+      fontSize: '10px',
+      fontWeight: 'bold',
+      borderRadius: '4px',
+      border: darkMode ? '1px solid #475569' : '1px solid #ddd',
+      cursor: 'pointer',
+      outline: 'none',
       backgroundColor: darkMode ? '#0f172a' : 'white',
       color: darkMode ? '#ffffff' : '#000000'
     },
-    searchBar: { 
-      display: 'flex', 
-      alignItems: 'center', 
-      backgroundColor: darkMode ? '#0f172a' : '#f3f4f6', 
-      padding: '6px 12px', 
-      borderRadius: '4px', 
-      border: darkMode ? '1px solid #334155' : '1px solid #ddd' 
+    searchBar: {
+      display: 'flex',
+      alignItems: 'center',
+      backgroundColor: darkMode ? '#0f172a' : '#f3f4f6',
+      padding: '6px 12px',
+      borderRadius: '4px',
+      border: darkMode ? '1px solid #334155' : '1px solid #ddd'
     },
-    statusSelector: { 
-      padding: '6px 12px', 
-      borderRadius: '4px', 
-      border: darkMode ? '1px solid #334155' : '1px solid #ddd', 
-      fontSize: '12px', 
-      outline: 'none', 
-      backgroundColor: darkMode ? '#0f172a' : '#fff', 
-      cursor: 'pointer', 
-      fontWeight: 'bold', 
-      color: darkMode ? '#ffffff' : '#333', 
-      marginRight: '10px' 
+    statusSelector: {
+      padding: '6px 12px',
+      borderRadius: '4px',
+      border: darkMode ? '1px solid #334155' : '1px solid #ddd',
+      fontSize: '12px',
+      outline: 'none',
+      backgroundColor: darkMode ? '#0f172a' : '#fff',
+      cursor: 'pointer',
+      fontWeight: 'bold',
+      color: darkMode ? '#ffffff' : '#333',
+      marginRight: '10px'
     },
     modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' },
-    modalContent: { 
-      backgroundColor: darkMode ? '#1e293b' : 'white', 
-      width: '100%', 
-      maxWidth: '500px', 
-      borderRadius: '4px', 
-      overflow: 'hidden', 
+    modalContent: {
+      backgroundColor: darkMode ? '#1e293b' : 'white',
+      width: '100%',
+      maxWidth: '500px',
+      borderRadius: '4px',
+      overflow: 'hidden',
       boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
       border: darkMode ? '1px solid #334155' : 'none'
     },
     modalHeader: { backgroundColor: '#000', color: '#2563eb', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #2563eb' },
     modalBody: { padding: '25px', maxHeight: '75vh', overflowY: 'auto' },
     infoTable: { width: '100%', borderCollapse: 'collapse', marginBottom: '20px' },
-    infoLabel: { 
-      padding: '8px 0', 
-      fontWeight: 'bold', 
-      fontSize: '11px', 
-      color: darkMode ? '#ffffff' : '#000', 
-      borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', 
-      textTransform: 'uppercase', 
-      width: '40%' 
+    infoLabel: {
+      padding: '8px 0',
+      fontWeight: 'bold',
+      fontSize: '11px',
+      color: darkMode ? '#ffffff' : '#000',
+      borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee',
+      textTransform: 'uppercase',
+      width: '40%'
     },
-    infoValue: { 
-      padding: '8px 0', 
-      fontSize: '12px', 
-      color: darkMode ? '#cbd5e1' : '#444', 
-      borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee' 
+    infoValue: {
+      padding: '8px 0',
+      fontSize: '12px',
+      color: darkMode ? '#cbd5e1' : '#444',
+      borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee'
     },
     pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '30px', paddingBottom: '20px' },
-    pageBtn: (active) => ({ 
-      padding: '8px 16px', 
-      cursor: 'pointer', 
-      backgroundColor: active ? '#2563eb' : (darkMode ? '#0f172a' : 'white'), 
-      color: active ? 'white' : (darkMode ? '#94a3b8' : '#666'), 
-      border: darkMode ? '1px solid #334155' : '1px solid #ddd', 
-      borderRadius: '4px', 
-      fontSize: '12px', 
-      fontWeight: 'bold', 
-      transition: '0.2s' 
+    pageBtn: (active) => ({
+      padding: '8px 16px',
+      cursor: 'pointer',
+      backgroundColor: active ? '#2563eb' : (darkMode ? '#0f172a' : 'white'),
+      color: active ? 'white' : (darkMode ? '#94a3b8' : '#666'),
+      border: darkMode ? '1px solid #334155' : '1px solid #ddd',
+      borderRadius: '4px',
+      fontSize: '12px',
+      fontWeight: 'bold',
+      transition: '0.2s'
     }),
     btnDownload: { border: 'none', fontSize: '9px', padding: '6px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'none', textAlign: 'center', color: 'white', display: 'block', width: '100%' },
-    btnCancel: {
-      backgroundColor: darkMode ? '#0f172a' : '#fff',
-      color: '#2563eb',
-      border: '1px solid #2563eb',
-      padding: '6px',
+    timeTag: {
       fontSize: '9px',
-      fontWeight: 'bold',
-      cursor: 'pointer',
-      borderRadius: '4px',
-      marginTop: '5px',
-      width: '100%',
-      textAlign: 'center'
+      color: darkMode ? '#94a3b8' : '#666',
+      textAlign: 'center',
+      marginTop: '2px',
+      fontWeight: '500'
     }
   };
 
@@ -386,13 +385,20 @@ const Archivos = ({ session }) => {
     const e = estado?.toLowerCase();
     if (e === 'completado') return '#22c55e';
     if (e === 'pendiente') return '#f59e0b';
-    if (e === 'en revision') return '#3b82f6';
+    if (e === 'en gestión') return '#3b82f6';
     return '#2563eb';
   };
 
   const filteredArchivos = archivos.filter(a => {
-    const matchSearch = !searchTerm || a.numero_orden?.toString() === searchTerm || a.patente?.toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.trim().toLowerCase();
+
+    const matchOrden = a.numero_orden?.toString() === term;
+    const matchPatente = a.patente?.toLowerCase().includes(term);
+    const matchEmail = a.profiles?.email?.toLowerCase().includes(term);
+
+    const matchSearch = !term || matchOrden || matchPatente || matchEmail;
     const matchStatus = statusFilter === 'todos' || a.estado === statusFilter;
+
     return matchSearch && matchStatus;
   });
 
@@ -413,19 +419,44 @@ const Archivos = ({ session }) => {
             <select style={styles.statusSelector} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPaginaActual(1); }}>
               <option value="todos">ESTADO (TODOS)</option>
               <option value="pendiente">PENDIENTES</option>
-              <option value="en revision">EN REVISIÓN</option>
+              <option value="en gestión">EN GESTIÓN</option>
               <option value="completado">COMPLETADOS</option>
             </select>
             <div style={styles.searchBar}>
               <span style={{ fontSize: '12px', marginRight: '8px', color: darkMode ? '#94a3b8' : '#333' }}>🔍</span>
-              <input 
-                type="text" 
-                placeholder="Buscar..." 
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '12px', width: '150px', color: darkMode ? '#ffffff' : '#000000' }} 
-                value={searchTerm} 
-                onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }} 
+              <input
+                type="text"
+                placeholder="Buscar..."
+                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '12px', width: '150px', color: darkMode ? '#ffffff' : '#000000' }}
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }}
               />
             </div>
+          </div>
+        </div>
+
+        {/* 🕒 --- BANNER INFORMATIVO DE HORARIO --- */}
+        <div style={{
+          marginTop: '15px',
+          padding: '10px 14px',
+          backgroundColor: darkMode ? '#0f172a' : '#f8fafc',
+          borderLeft: '4px solid #f59e0b', // Borde lateral amarillo/ámbar de advertencia
+          borderTop: darkMode ? '1px solid #1e293b' : '1px solid #e2e8f0',
+          borderRight: darkMode ? '1px solid #1e293b' : '1px solid #e2e8f0',
+          borderBottom: darkMode ? '1px solid #1e293b' : '1px solid #e2e8f0',
+          borderRadius: '4px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          color: darkMode ? '#cbd5e1' : '#475569',
+          fontSize: '11px'
+        }}>
+          <span style={{ fontSize: '16px' }}>🕒</span>
+          <div>
+            <strong>Horario de atención técnica:</strong> Lunes a Viernes de 09:00 a 18:30 hrs.
+            <span style={{ color: darkMode ? '#94a3b8' : '#64748b', marginLeft: '5px' }}>
+              (Las solicitudes recibidas fuera de este horario o en días festivos se procesarán a primera hora del siguiente día hábil).
+            </span>
           </div>
         </div>
 
@@ -449,7 +480,6 @@ const Archivos = ({ session }) => {
             <tbody>
               {archivosPaginados.map((archivo) => (
                 <tr key={archivo.id}>
-                  {/* --- COLUMNA N° ORDEN / FECHA / HORA MODIFICADA --- */}
                   <td style={styles.td}>
                     <div style={{ fontWeight: 'bold', color: '#2563eb', fontSize: '14px' }}>
                       #{archivo.numero_orden || '---'}
@@ -461,7 +491,7 @@ const Archivos = ({ session }) => {
                       🕒 {new Date(archivo.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })} hrs
                     </div>
                   </td>
-                  
+
                   {isAdmin && <td style={{ ...styles.td, fontWeight: 'bold', color: '#2563eb' }}>{archivo.profiles?.company || 'PARTICULAR'}</td>}
                   {isAdmin && (
                     <td style={{ ...styles.td, fontSize: '11px', color: darkMode ? '#cbd5e1' : '#555' }}>
@@ -477,7 +507,7 @@ const Archivos = ({ session }) => {
                     {isAdmin ? (
                       <select style={{ ...styles.selectAdmin, color: getBadgeColor(archivo.estado), borderColor: getBadgeColor(archivo.estado) }} value={archivo.estado} onChange={(e) => handleStatusChange(archivo.id, e.target.value, archivo.profiles?.email, archivo.patente)}>
                         <option value="pendiente">Pendiente</option>
-                        <option value="en revision">En Revisión</option>
+                        <option value="en gestión">En Gestión</option>
                         <option value="completado">Completado</option>
                         <option value="cancelado">Cancelado</option>
                       </select>
@@ -497,11 +527,21 @@ const Archivos = ({ session }) => {
                     </div>
                   </td>
 
-                  {/* --- COLUMNA ACCIÓN ADMI (ADMINISTRADOR) --- */}
+                  {/* --- COLUMNA ACCIÓN ADMI (DESCARGA CON HORA Y DÍA) --- */}
+                  {/* --- COLUMNA ACCIÓN ADMI (V1, V2 y V3) --- */}
                   <td style={styles.td}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: '110px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '130px' }}>
+
+                      {/* --- ARCHIVO MOD / V1 --- */}
                       {archivo.mod_file_url ? (
-                        <button onClick={() => handleForceDownload(archivo.mod_file_url)} style={{ ...styles.btnDownload, background: '#22c55e' }}>🚀 DESCARGAR MOD</button>
+                        <div>
+                          <button onClick={() => handleForceDownload(archivo.mod_file_url)} style={{ ...styles.btnDownload, background: '#22c55e' }}>🚀 DESCARGAR MOD</button>
+                          {archivo.mod_uploaded_at && (
+                            <div style={styles.timeTag}>
+                              📅 {new Date(archivo.mod_uploaded_at).toLocaleDateString('es-CL')} 🕒 {new Date(archivo.mod_uploaded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          )}
+                        </div>
                       ) : isAdmin && (
                         <label style={{ backgroundColor: '#000', color: '#22c55e', padding: '5px', fontSize: '9px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #22c55e', textAlign: 'center', fontWeight: 'bold' }}>
                           {loading ? '...' : '📤 SUBIR MOD'}
@@ -509,17 +549,42 @@ const Archivos = ({ session }) => {
                         </label>
                       )}
 
+                      {/* --- ARCHIVO V2 --- */}
                       {archivo.mod_file_extra_url ? (
-                        <button onClick={() => handleForceDownload(archivo.mod_file_extra_url)} style={{ ...styles.btnDownload, background: '#10b981' }}>📦 DESCARGAR EXTRA</button>
+                        <div>
+                          <button onClick={() => handleForceDownload(archivo.mod_file_extra_url)} style={{ ...styles.btnDownload, background: '#10b981' }}>📦 DESCARGAR V2</button>
+                          {archivo.mod_extra_uploaded_at && (
+                            <div style={styles.timeTag}>
+                              📅 {new Date(archivo.mod_extra_uploaded_at).toLocaleDateString('es-CL')} 🕒 {new Date(archivo.mod_extra_uploaded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          )}
+                        </div>
                       ) : isAdmin && (
                         <label style={{ backgroundColor: '#111', color: '#10b981', padding: '5px', fontSize: '9px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #10b981', textAlign: 'center', fontWeight: 'bold' }}>
-                          {loading ? '...' : '➕ SUBIR EXTRA'}
+                          {loading ? '...' : '➕ SUBIR V2'}
                           <input type="file" style={{ display: 'none' }} onChange={(e) => handleUploadModificado(archivo.id, e.target.files[0], archivo.patente, archivo.profiles?.email, 'mod_file_extra_url')} />
                         </label>
                       )}
+
+                      {/* --- ARCHIVO V3 --- */}
+                      {archivo.mod_v3_file_url ? (
+                        <div>
+                          <button onClick={() => handleForceDownload(archivo.mod_v3_file_url)} style={{ ...styles.btnDownload, background: '#06b6d4' }}>⚡ DESCARGAR V3</button>
+                          {archivo.mod_v3_uploaded_at && (
+                            <div style={styles.timeTag}>
+                              📅 {new Date(archivo.mod_v3_uploaded_at).toLocaleDateString('es-CL')} 🕒 {new Date(archivo.mod_v3_uploaded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          )}
+                        </div>
+                      ) : isAdmin && (
+                        <label style={{ backgroundColor: '#083344', color: '#06b6d4', padding: '5px', fontSize: '9px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #06b6d4', textAlign: 'center', fontWeight: 'bold' }}>
+                          {loading ? '...' : '⚡ SUBIR V3'}
+                          <input type="file" style={{ display: 'none' }} onChange={(e) => handleUploadModificado(archivo.id, e.target.files[0], archivo.patente, archivo.profiles?.email, 'mod_v3_file_url')} />
+                        </label>
+                      )}
+
                     </div>
                   </td>
-
                   {/* --- MENSAJE TÉCNICO --- */}
                   <td style={{ ...styles.td, minWidth: '180px' }}>
                     <div style={{

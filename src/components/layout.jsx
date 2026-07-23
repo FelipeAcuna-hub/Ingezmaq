@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import logoImg from '../../img/logoingezmaq.png';
+import logoImg from '../../img/logo.png';
 
-// --- ICONOS SVG EN LÍNEA (sin dependencias externas) ---
+// --- ICONOS SVG EN LÍNEA ---
 const Icon = {
   Dashboard: (p) => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
@@ -82,8 +82,8 @@ const Icon = {
   )
 };
 
-// --- SUB-COMPONENTE INTERACTIVO PARA LAS ANIMACIONES (HOVER) ---
-const SidebarLink = ({ to, currentPath, icon, text, onClick, activeStyle, inactiveStyle }) => {
+// --- SUB-COMPONENTE INTERACTIVO ---
+const SidebarLink = ({ to, currentPath, icon, text, onClick, activeStyle, inactiveStyle, badgeCount = 0 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const isActive = currentPath === to;
 
@@ -110,55 +110,74 @@ const SidebarLink = ({ to, currentPath, icon, text, onClick, activeStyle, inacti
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <li style={itemStyle}>
-        <span style={{
-          marginRight: '13px',
-          display: 'inline-flex',
-          alignItems: 'center',
-          color: isActive ? '#ffffff' : (isHovered ? '#60a5fa' : '#6b7280'),
-          transition: 'all 0.2s ease'
-        }}>
-          {icon}
-        </span>
-        {text}
+      <li style={{ ...itemStyle, justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <span style={{
+            marginRight: '13px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            color: isActive ? '#ffffff' : (isHovered ? '#60a5fa' : '#6b7280'),
+            transition: 'all 0.2s ease'
+          }}>
+            {icon}
+          </span>
+          {text}
+        </div>
+
+        {/* BADGE NOTIFICACIÓN SOLO SI HAY PENDIENTES / MENSAJES NUEVOS */}
+        {badgeCount > 0 && (
+          <span className="layout-badge-pulse" style={{
+            backgroundColor: '#e11d48',
+            color: '#ffffff',
+            fontSize: '10px',
+            fontWeight: '800',
+            padding: '2px 7px',
+            borderRadius: '999px',
+            boxShadow: '0 0 8px rgba(225,29,72,0.8)'
+          }}>
+            {badgeCount}
+          </span>
+        )}
       </li>
     </Link>
   );
 };
 
-// --- FUNCIÓN DE CÁLCULO DE HORARIO CHILENO ---
-const checkAutoOnline = () => {
-  const chileTime = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Santiago",
-    hour: "numeric", hour12: false, weekday: "long",
-  }).formatToParts(new Date());
+// --- CÁLCULO DE HORARIO CHILENO ---
+const checkEstaAbierto = () => {
+  const ahora = new Date();
+  
+  // Obtener hora y día en zona horaria local (Chile/Santiago)
+  const horaChile = new Date(ahora.toLocaleString("en-US", { timeZone: "America/Santiago" }));
+  const diaSemana = horaChile.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+  const hora = horaChile.getHours();
+  const minutos = horaChile.getMinutes();
 
-  const hour = parseInt(chileTime.find(p => p.type === 'hour').value);
-  const day = chileTime.find(p => p.type === 'weekday').value;
+  // Lunes (1) a Viernes (5)
+  const esDiaHabil = diaSemana >= 1 && diaSemana <= 5;
+  
+  // De 9:00 a 18:30 (18.5 en formato decimal)
+  const tiempoEnHoras = hora + (minutos / 60);
+  const esHorarioHabil = tiempoEnHoras >= 9 && tiempoEnHoras < 18.5;
 
-  const isWorkDay = !['Sunday'].includes(day);
-  const morningShift = hour >= 9 && hour < 13;
-  const afternoonShift = day !== 'Saturday' && hour >= 15 && hour < 19;
-
-  return isWorkDay && (morningShift || afternoonShift);
+  return esDiaHabil && esHorarioHabil;
 };
 
 const Layout = ({ session }) => {
   const [dbCredits, setDbCredits] = useState(0);
   const [displayName, setDisplayName] = useState("USUARIO");
   const [status, setStatus] = useState({ is_online: true, mensaje: 'CARGANDO ESTADO...' });
+  const [ticketCount, setTicketCount] = useState(0);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
-  // --- ESTADO PARA EL MODO CLARO / OSCURO ---
   const [darkMode, setDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem('theme');
     return savedTheme ? savedTheme === 'dark' : true;
   });
 
-  // --- RESPONSIVE REACTIVO ---
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 768);
@@ -166,17 +185,62 @@ const Layout = ({ session }) => {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // --- OBTENER ROL ADMINISTRADOR EN TIEMPO REAL ---
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
     'oliver.zuniga@gmail.com',
     'focaldevs@gmail.com'
   ];
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
-  // 🛠️ FUNCIÓN DE SINCRONIZACIÓN MAESTRA EN LAYOUT
+
+  // 🛠️ LÓGICA FILTRADA: SOLO MUESTRA NOTIFICACIÓN EN 'PENDIENTE' O 'MENSAJES NUEVOS'
+  const fetchPendingTicketsCount = useCallback(async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      // 1. Obtener los tickets relevantes
+      let queryTickets = supabase
+        .from('tickets')
+        .select('id, estado, user_id');
+
+      if (!isAdmin) {
+        queryTickets = queryTickets.eq('user_id', session.user.id);
+      }
+
+      const { data: ticketsData, error: errTickets } = await queryTickets;
+      if (errTickets || !ticketsData) return;
+
+      // 2. Tickets con estado 'Pendiente' siempre suman +1
+      let count = ticketsData.filter(t => t.estado === 'Pendiente').length;
+
+      // 3. Para tickets en 'En Curso' o 'Resuelto', revisamos si el último mensaje lo envió la OTRA parte
+      const otherTickets = ticketsData.filter(t => t.estado !== 'Pendiente');
+
+      for (const t of otherTickets) {
+        const { data: msgs } = await supabase
+          .from('ticket_messages')
+          .select('is_admin_reply, user_id, created_at')
+          .eq('ticket_id', t.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (msgs && msgs.length > 0) {
+          const lastMsg = msgs[0];
+          // Si soy Admin y el último mensaje lo mandó el cliente (is_admin_reply === false)
+          // O si soy Cliente y el último mensaje fue una respuesta del Admin (is_admin_reply === true)
+          if (isAdmin ? !lastMsg.is_admin_reply : lastMsg.is_admin_reply) {
+            count += 1;
+          }
+        }
+      }
+
+      setTicketCount(count);
+    } catch (err) {
+      console.error("Error calculando notificaciones de tickets:", err);
+    }
+  }, [session?.user?.id, isAdmin]);
+
   const updateBannerStatus = useCallback(async () => {
     try {
-      // Consultamos el estado real con un select directo sin filtros complejos
       const { data, error } = await supabase
         .from('configuracion_global')
         .select('is_online')
@@ -186,33 +250,31 @@ const Layout = ({ session }) => {
       if (error) throw error;
 
       const dbState = data?.is_online;
-
-      // Validaciones robustas para strings y booleanos de Supabase
       const isAuto = dbState === 'auto' || dbState === true || dbState === "true";
       const isManualOff = dbState === 'manual_off' || dbState === false || dbState === "false";
-
-      // Calculamos el horario automático local
-      const isScheduleOnline = checkAutoOnline();
+      
+      // ✅ CORREGIDO: Usamos checkEstaAbierto() en lugar de checkAutoOnline()
+      const isScheduleOnline = checkEstaAbierto();
 
       if (isAuto) {
         if (isScheduleOnline) {
-          setStatus({ is_online: true, mensaje: "SISTEMA ONLINE - INGEZMAQ PROCESANDO" });
+          setStatus({ is_online: true, mensaje: "SISTEMA ONLINE - CHIPTUNING PROCESANDO" });
         } else {
           setStatus({ is_online: false, mensaje: "FUERA DE HORARIO DE ATENCIÓN" });
         }
       } else if (isManualOff) {
         setStatus({ is_online: false, mensaje: "FUERA DE HORARIO DE ATENCIÓN (CERRADO POR ADMINISTRACIÓN)" });
       } else {
-        // Por si acaso existiera otro estado residual
         setStatus({ is_online: false, mensaje: "SISTEMA FUERA DE SERVICIO" });
       }
 
     } catch (err) {
       console.error("Error actualizando banner corporativo:", err);
-      const localSchedule = checkAutoOnline();
+      // ✅ CORREGIDO: Usamos checkEstaAbierto() en el fallback
+      const localSchedule = checkEstaAbierto();
       setStatus({
         is_online: localSchedule,
-        mensaje: localSchedule ? "SISTEMA ONLINE - INGEZMAQ PROCESANDO" : "FUERA DE HORARIO DE ATENCIÓN"
+        mensaje: localSchedule ? "SISTEMA ONLINE - CHIPTUNING PROCESANDO" : "FUERA DE HORARIO DE ATENCIÓN"
       });
     }
   }, []);
@@ -235,18 +297,28 @@ const Layout = ({ session }) => {
 
     fetchUserData();
     updateBannerStatus();
+    fetchPendingTicketsCount();
 
-    // Sincronización automática cada un minuto
     const timer = setInterval(updateBannerStatus, 60000);
-
-    // ⚡ ESCUCHADOR EN VIVO: Oye el evento disparado instantáneamente desde la sección Admin
     window.addEventListener('config-updated', updateBannerStatus);
+
+    // ⚡ REALTIME CANAL TRIPLE: Escucha tickets e inserciones de mensajes
+    const channel = supabase
+      .channel('realtime_tickets_notifications')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
+        fetchPendingTicketsCount();
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ticket_messages' }, () => {
+        fetchPendingTicketsCount();
+      })
+      .subscribe();
 
     return () => {
       clearInterval(timer);
       window.removeEventListener('config-updated', updateBannerStatus);
+      supabase.removeChannel(channel);
     };
-  }, [session, updateBannerStatus]);
+  }, [session, updateBannerStatus, fetchPendingTicketsCount]);
 
   const toggleTheme = () => {
     const nextMode = !darkMode;
@@ -377,7 +449,7 @@ const Layout = ({ session }) => {
       color: '#9ca3af',
       border: '1px solid rgba(255, 255, 255, 0.1)',
       padding: '11px 14px',
-      borderRadius: '9px',
+      borderRadius: '999px',
       fontSize: '11px',
       fontWeight: 'bold',
       cursor: 'pointer',
@@ -394,7 +466,7 @@ const Layout = ({ session }) => {
       padding: '11px',
       fontWeight: 'bold',
       cursor: 'pointer',
-      borderRadius: '9px',
+      borderRadius: '999px',
       fontSize: '11px',
       textTransform: 'uppercase',
       position: 'relative',
@@ -412,30 +484,17 @@ const Layout = ({ session }) => {
         .layout-simulador-item:hover { background-color: rgba(255,255,255,0.05); color: #d1d5db !important; }
         @keyframes layoutPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
         .layout-status-dot { animation: layoutPulse 2s ease-in-out infinite; }
+        @keyframes badgePulse { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+        .layout-badge-pulse { animation: badgePulse 1.8s infinite; }
       `}</style>
 
       <aside style={styles.sidebar}>
 
         <div style={styles.logoContainer}>
           <Link to="/" style={{ display: 'block', width: '100%', textAlign: 'center' }} onClick={() => setIsMenuOpen(false)}>
-            <img src={logoImg} alt="Ingezmaq Logo" style={styles.logoImg} />
+            <img src={logoImg} alt="Chiptuning Logo" style={styles.logoImg} />
           </Link>
 
-          <a
-            href="https://www.instagram.com/ingezmaq"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={styles.instagramBrand}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#e1306c'}
-            onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-            </svg>
-            <span>ingezmaq</span>
-          </a>
         </div>
 
         <ul className="layout-nav-scroll" style={{ padding: '14px 0', margin: 0, listStyle: 'none', overflowY: 'auto' }}>
@@ -469,11 +528,13 @@ const Layout = ({ session }) => {
             inactiveStyle={styles.navItem}
           />
 
+          {/* 🔔 NOTIFICACIÓN CONDICIONAL DE TICKETS */}
           <SidebarLink
             to="/tickets"
             currentPath={location.pathname}
             icon={<Icon.Chat />}
             text="TICKETS"
+            badgeCount={ticketCount}
             onClick={() => setIsMenuOpen(false)}
             activeStyle={styles.navItemActive}
             inactiveStyle={styles.navItem}
@@ -571,7 +632,7 @@ const Layout = ({ session }) => {
               {isMenuOpen ? <Icon.Close /> : <Icon.Menu />}
             </button>
             <div style={{ fontSize: isMobile ? '12px' : '14px', fontWeight: '800', color: '#ffffff', letterSpacing: '0.5px' }}>
-              {!isMobile && 'PORTAL DISTRIBUIDORES INGEZMAQ'}
+              {!isMobile && 'PORTAL DISTRIBUIDORES CHIPTUNING'}
             </div>
           </div>
 

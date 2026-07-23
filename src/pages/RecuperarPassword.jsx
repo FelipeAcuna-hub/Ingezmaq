@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { Link } from 'react-router-dom';
-import logoImg from '../../img/logoingezmaq.png'; // 🚀 IMPORTAMOS TU LOGO REAL
+import logoImg from '../../img/logo.png'; // 🚀 IMPORTAMOS TU LOGO REAL
 
 const RecuperarPassword = () => {
   const [email, setEmail] = useState('');
@@ -85,9 +85,9 @@ const RecuperarPassword = () => {
   return (
     <div style={styles.container}>
       <div style={styles.box}>
-        {/* ELIMINADA LA MARCA ANTERIOR Y PUESTO TU LOGO DE INGEZMAQ */}
+        {/* ELIMINADA LA MARCA ANTERIOR Y PUESTO TU LOGO DE chiptuning */}
         <div style={styles.logoContainer}>
-          <img src={logoImg} alt="Ingezmaq Portal" style={styles.logoImg} />
+          <img src={logoImg} alt="Chiptuning Portal" style={styles.logoImg} />
         </div>
         <div style={styles.subtitle}>Recuperar acceso al portal</div>
 

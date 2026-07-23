@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useOutletContext, Link } from 'react-router-dom'; // Importamos Link de react-router-dom
+import { useOutletContext, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import {
   RefreshCw,
@@ -37,7 +37,7 @@ const Historial = ({ session }) => {
     session?.user?.user_metadata?.role === 'admin' ||
     ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
 
-  // --- FUNCIÓN DE CARGA DE DATOS CORREGIDA ---
+  // --- FUNCIÓN DE CARGA DE DATOS ---
   const fetchDatos = useCallback(async () => {
     try {
       setLoading(true);
@@ -45,7 +45,7 @@ const Historial = ({ session }) => {
 
       console.log("=== INICIANDO FETCH DE HISTORIAL DE CRÉDITOS ===");
 
-      // 1. CONSULTA A TABLA 'movimientos' (CORREGIDA LA SINTAXIS DEL JOIN RELACIONAL)
+      // 1. CONSULTA A TABLA 'movimientos'
       let queryMovs = supabase
         .from('movimientos')
         .select('*, profiles(company, email)') 
@@ -73,9 +73,6 @@ const Historial = ({ session }) => {
       if (resCanjes.error) {
         console.error("Error en tabla 'historial_movimientos':", resCanjes.error);
       }
-
-      console.log("Datos de recargas recibidos:", resMovs.data);
-      console.log("Datos de canjes recibidos:", resCanjes.data);
 
       setMovimientos(resMovs.data || []);
       setCanjes(resCanjes.data || []);
@@ -127,7 +124,6 @@ const Historial = ({ session }) => {
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       transition: 'all 0.3s ease'
     },
-    // --- APARTADO NUEVO: BANNER CARGAR CRÉDITOS ---
     bannerCargar: {
       backgroundColor: tokens.surface,
       margin: '28px 30px 0',
@@ -272,7 +268,8 @@ const Historial = ({ session }) => {
       alignItems: 'center',
       gap: '5px',
       color: tokens.inkSoft,
-      fontSize: '12.5px'
+      fontSize: '12px',
+      marginTop: '4px'
     },
     adminBadge: {
       display: 'inline-flex',
@@ -428,7 +425,7 @@ const Historial = ({ session }) => {
         }
       `}</style>
 
-      {/* --- APARTADO SUPERIOR: BANNER DE ACCESO RÁPIDO PARA COMPRA DE CRÉDITOS --- */}
+      {/* BANNER DE ACCESO RÁPIDO PARA COMPRA DE CRÉDITOS */}
       <div style={styles.bannerCargar}>
         <div style={styles.bannerInfo}>
           <div style={styles.iconBadge(tokens.primary, tokens.primarySoft)}>
@@ -476,7 +473,7 @@ const Historial = ({ session }) => {
           <thead>
             <tr>
               <th style={styles.th}>Fecha</th>
-              {isAdmin && <th style={styles.th}>Empresa</th>}
+              {isAdmin && <th style={styles.th}>Empresa / Cliente</th>}
               <th style={styles.th}>Descripción</th>
               {isAdmin && <th style={styles.th}>Admin</th>}
               <th style={{ ...styles.th, textAlign: 'right' }}>Cantidad</th>
@@ -500,10 +497,16 @@ const Historial = ({ session }) => {
                     </td>
                     {isAdmin && (
                       <td style={styles.td}>
-                        <span style={styles.badge(tokens.brand, tokens.brandSoft, tokens.brandLine)}>
-                          <Building2 size={11} />
-                          {m.profiles?.company || 'PARTICULAR'}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <span style={styles.badge(tokens.brand, tokens.brandSoft, tokens.brandLine)}>
+                            <Building2 size={11} />
+                            {m.profiles?.company || 'PARTICULAR'}
+                          </span>
+                          <span style={styles.emailPill}>
+                            <Mail size={12} />
+                            {m.profiles?.email || '—'}
+                          </span>
+                        </div>
                       </td>
                     )}
                     <td style={{ ...styles.td, color: tokens.inkSoft }}>{m.descripcion}</td>
@@ -563,15 +566,14 @@ const Historial = ({ session }) => {
           <thead>
             <tr>
               <th style={styles.th}>Fecha</th>
-              {isAdmin && <th style={styles.th}>Empresa</th>}
-              {isAdmin && <th style={styles.th}>Correo cliente</th>}
+              {isAdmin && <th style={styles.th}>Empresa / Cliente</th>}
               <th style={styles.th}>Detalle</th>
               <th style={{ ...styles.th, textAlign: 'right' }}>Cantidad</th>
             </tr>
           </thead>
           <tbody>
             {loading && canjes.length === 0
-              ? renderSkeletonRows(isAdmin ? 5 : 3)
+              ? renderSkeletonRows(isAdmin ? 4 : 3)
               : canjesPaginados.map((c, i) => {
                 const fechaObj = new Date(c.fecha);
                 return (
@@ -588,19 +590,16 @@ const Historial = ({ session }) => {
 
                     {isAdmin && (
                       <td style={styles.td}>
-                        <span style={styles.badge(tokens.brand, tokens.brandSoft, tokens.brandLine)}>
-                          <Building2 size={11} />
-                          {c.profiles?.company || 'PARTICULAR'}
-                        </span>
-                      </td>
-                    )}
-
-                    {isAdmin && (
-                      <td style={styles.td}>
-                        <span style={styles.emailPill}>
-                          <Mail size={12} />
-                          {c.profiles?.email || '—'}
-                        </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                          <span style={styles.badge(tokens.brand, tokens.brandSoft, tokens.brandLine)}>
+                            <Building2 size={11} />
+                            {c.profiles?.company || 'PARTICULAR'}
+                          </span>
+                          <span style={styles.emailPill}>
+                            <Mail size={12} />
+                            {c.profiles?.email || '—'}
+                          </span>
+                        </div>
                       </td>
                     )}
 

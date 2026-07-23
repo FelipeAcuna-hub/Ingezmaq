@@ -57,13 +57,13 @@ const CategoryItem = ({ cat, isSelected, onClick, darkMode }) => {
     alignItems: 'center',
     padding: '14px 18px',
     marginBottom: '10px',
-    border: isSelected 
-      ? '2px solid #2563eb' 
+    border: isSelected
+      ? '2px solid #2563eb'
       : (darkMode ? '1px solid #334155' : '1px solid #eee'),
     borderRadius: '8px',
     cursor: 'pointer',
-    backgroundColor: isSelected 
-      ? (darkMode ? 'rgba(37, 99, 235, 0.25)' : '#eff6ff') 
+    backgroundColor: isSelected
+      ? (darkMode ? 'rgba(37, 99, 235, 0.25)' : '#eff6ff')
       : (isHovered ? (darkMode ? 'rgba(255,255,255,0.03)' : '#f8fafc') : (darkMode ? '#0f172a' : 'white')),
     color: isSelected ? '#ffffff' : (darkMode ? '#cbd5e1' : '#000000'),
     fontWeight: isSelected ? '700' : '500',
@@ -73,16 +73,16 @@ const CategoryItem = ({ cat, isSelected, onClick, darkMode }) => {
   };
 
   return (
-    <div 
-      style={itemStyle} 
+    <div
+      style={itemStyle}
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <span style={{ 
-        fontSize: '13px', 
-        display: 'flex', 
-        alignItems: 'center', 
+      <span style={{
+        fontSize: '13px',
+        display: 'flex',
+        alignItems: 'center',
         gap: '6px',
         color: isSelected ? '#60a5fa' : (isHovered ? '#2563eb' : (darkMode ? '#94a3b8' : '#666'))
       }}>
@@ -102,13 +102,13 @@ const ServiceOptionItem = ({ s, isSelected, onClick, darkMode }) => {
     alignItems: 'center',
     padding: '14px 18px',
     marginBottom: '10px',
-    border: isSelected 
-      ? '2px solid #22c55e' 
+    border: isSelected
+      ? '2px solid #22c55e'
       : (darkMode ? '1px solid #334155' : '1px solid #eee'),
     borderRadius: '8px',
     cursor: 'pointer',
-    backgroundColor: isSelected 
-      ? (darkMode ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4') 
+    backgroundColor: isSelected
+      ? (darkMode ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4')
       : (isHovered ? (darkMode ? 'rgba(255,255,255,0.03)' : '#f8fafc') : (darkMode ? '#0f172a' : 'white')),
     color: isSelected ? (darkMode ? '#4ade80' : '#15803d') : (darkMode ? '#cbd5e1' : '#000000'),
     transform: isHovered && !isSelected ? 'scale(1.01) translateX(2px)' : 'scale(1) translateX(0)',
@@ -128,8 +128,8 @@ const ServiceOptionItem = ({ s, isSelected, onClick, darkMode }) => {
   };
 
   return (
-    <div 
-      style={itemStyle} 
+    <div
+      style={itemStyle}
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -186,7 +186,7 @@ const UploadFile = ({ session }) => {
     }
   };
 
-  const isFormValid = formData.patente.length >= 4 && fileId && fileMapa && servicioSel;
+  const isFormValid = formData.patente.length >= 4 && fileMapa && servicioSel;
 
   const uploadSingleFile = async (file, prefix, folderName) => {
     if (!file) return null;
@@ -305,14 +305,14 @@ const UploadFile = ({ session }) => {
         `;
 
         const adminEmailsString = 'alientechchile@gmail.com, sebastianzunigavaldivia@gmail.com';
-        
+
         const adminEmailsArray = adminEmailsString.split(',').map(email => email.trim());
 
         await supabase.functions.invoke('swift-function', {
-          body: { 
-            to: adminEmailsArray, 
-            subject: `🚀 ARCHIVO: ${formData.patente} - ${formData.marca}`, 
-            html: emailHtmlNuevo 
+          body: {
+            to: adminEmailsArray,
+            subject: `🚀 ARCHIVO: ${formData.patente} - ${formData.marca}`,
+            html: emailHtmlNuevo
           },
         });
 
@@ -333,29 +333,29 @@ const UploadFile = ({ session }) => {
   };
 
   const styles = {
-    main: { 
-      flex: 1, 
-      display: 'flex', 
-      flexDirection: 'column', 
+    main: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
       backgroundColor: darkMode ? '#0f172a' : '#f3f4f6',
       transition: 'all 0.3s ease'
     },
-    formCard: { 
-      backgroundColor: darkMode ? '#1e293b' : 'white', 
-      margin: '30px', 
-      padding: '40px', 
-      borderRadius: '4px', 
+    formCard: {
+      backgroundColor: darkMode ? '#1e293b' : 'white',
+      margin: '30px',
+      padding: '40px',
+      borderRadius: '4px',
       boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.3)' : '0 2px 10px rgba(0,0,0,0.05)',
       color: darkMode ? '#ffffff' : '#000000',
       transition: 'all 0.3s ease'
     },
     row: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '20px', marginBottom: '20px' },
     label: { display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', color: darkMode ? '#94a3b8' : '#333', textTransform: 'uppercase' },
-    input: { 
-      width: '100%', 
-      padding: '10px', 
-      border: darkMode ? '1px solid #475569' : '1px solid #ccc', 
-      borderRadius: '4px', 
+    input: {
+      width: '100%',
+      padding: '10px',
+      border: darkMode ? '1px solid #475569' : '1px solid #ccc',
+      borderRadius: '4px',
       boxSizing: 'border-box',
       backgroundColor: darkMode ? '#0f172a' : '#ffffff',
       color: darkMode ? '#ffffff' : '#000000',
@@ -364,30 +364,30 @@ const UploadFile = ({ session }) => {
     },
     gridFiles: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '25px' },
     fileBox: (hasFile, isRequired) => ({
-      border: hasFile 
-        ? '2px solid #22c55e' 
+      border: hasFile
+        ? '2px solid #22c55e'
         : (isRequired ? '2px dashed #2563eb' : (darkMode ? '2px dashed #475569' : '2px dashed #ddd')),
-      padding: '20px', 
-      textAlign: 'center', 
+      padding: '20px',
+      textAlign: 'center',
       borderRadius: '4px',
-      backgroundColor: hasFile 
-        ? (darkMode ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4') 
-        : (isRequired ? (darkMode ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff') : (darkMode ? '#0f172a' : '#f9f9f9')), 
-      cursor: 'pointer', 
+      backgroundColor: hasFile
+        ? (darkMode ? 'rgba(34, 197, 94, 0.15)' : '#f0fdf4')
+        : (isRequired ? (darkMode ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff') : (darkMode ? '#0f172a' : '#f9f9f9')),
+      cursor: 'pointer',
       transition: '0.3s'
     }),
     button: { backgroundColor: '#2563eb', color: 'white', border: 'none', padding: '15px 40px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '2px', textTransform: 'uppercase', fontSize: '13px' },
     btnBack: { color: darkMode ? '#60a5fa' : '#666', textDecoration: 'none', fontSize: '13px', marginLeft: '30px', marginTop: '20px', display: 'inline-block', fontWeight: 'bold' },
     selectorGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', margin: '20px 0' },
     resumenBox: {
-      backgroundColor: darkMode ? '#0f172a' : '#000', 
-      color: 'white', 
-      padding: '30px', 
+      backgroundColor: darkMode ? '#0f172a' : '#000',
+      color: 'white',
+      padding: '30px',
       borderRadius: '4px',
-      textAlign: 'center', 
-      marginTop: '30px', 
-      display: 'flex', 
-      justifyContent: 'space-around', 
+      textAlign: 'center',
+      marginTop: '30px',
+      display: 'flex',
+      justifyContent: 'space-around',
       alignItems: 'center',
       border: darkMode ? '1px solid #334155' : 'none'
     }
@@ -445,7 +445,7 @@ const UploadFile = ({ session }) => {
           <div>
             <label style={styles.label}>1. TIPO SERVICIO</label>
             {Object.keys(SERVICIOS_CONFIG).map(cat => (
-              <CategoryItem 
+              <CategoryItem
                 key={cat}
                 cat={cat}
                 isSelected={categoriaSel === cat}
@@ -457,7 +457,7 @@ const UploadFile = ({ session }) => {
           <div>
             <label style={styles.label}>2. DETALLE</label>
             {categoriaSel ? SERVICIOS_CONFIG[categoriaSel].map(s => (
-              <ServiceOptionItem 
+              <ServiceOptionItem
                 key={s.id}
                 s={s}
                 isSelected={servicioSel?.id === s.id}
@@ -479,7 +479,7 @@ const UploadFile = ({ session }) => {
 
         <div style={{ marginBottom: '25px' }}>
           <label style={styles.label}>Comentarios</label>
-          <textarea style={{ ...styles.input, height: '80px' }} placeholder="..." value={formData.comentarios} onChange={e => setFormData({ ...formData, comentarios: e.target.value })}></textarea>
+          <textarea style={{ ...styles.input, height: '80px' }} placeholder="Información del estado del vehículo (Limitación, pérdida de potencia, etc.), DTC, Alertas encendidas en tablero" value={formData.comentarios} onChange={e => setFormData({ ...formData, comentarios: e.target.value })}></textarea>
         </div>
 
         <h2 style={{ fontSize: '20px', margin: '40px 0 20px', borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', paddingBottom: '10px' }}>
@@ -487,25 +487,112 @@ const UploadFile = ({ session }) => {
         </h2>
 
         <div style={styles.gridFiles}>
-          <div style={styles.fileBox(!!fileId, true)} onClick={() => document.getElementById('fileId').click()}>
+          {/* --- 1. SUBIR ID --- */}
+          <div style={styles.fileBox(!!fileId, false)} onClick={() => document.getElementById('fileId').click()}>
             <input type="file" id="fileId" style={{ display: 'none' }} onChange={(e) => setFileId(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🆔</div>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileId ? '#22c55e' : '#2563eb' }}>{fileId ? 'ID LISTO' : 'SUBIR ID (OBLIGATORIO)'}</div>
-            <div style={{ fontSize: '10px', color: darkMode ? '#94a3b8' : '#888' }}>{fileId ? fileId.name : 'Export Console requerido'}</div>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileId ? '#22c55e' : (darkMode ? '#94a3b8' : '#333') }}>
+              {fileId ? 'ID LISTO' : 'SUBIR ID '}
+            </div>
+            <div style={{ fontSize: '10px', color: darkMode ? '#64748b' : '#888', wordBreak: 'break-all' }}>
+              {fileId ? fileId.name : ''}
+            </div>
+
+            {/* 🗑️ BOTÓN QUITAR ID */}
+            {fileId && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // Evita abrir el selector de archivos
+                  setFileId(null);
+                  document.getElementById('fileId').value = '';
+                }}
+                style={{
+                  marginTop: '6px',
+                  backgroundColor: 'transparent',
+                  color: '#ef4444',
+                  border: '1px solid #ef4444',
+                  borderRadius: '3px',
+                  padding: '2px 8px',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕ Quitar archivo
+              </button>
+            )}
           </div>
 
+          {/* --- 2. SUBIR MAPA --- */}
           <div style={styles.fileBox(!!fileMapa, true)} onClick={() => document.getElementById('fileMapa').click()}>
             <input type="file" id="fileMapa" style={{ display: 'none' }} onChange={(e) => setFileMapa(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🗺️</div>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileMapa ? '#22c55e' : '#2563eb' }}>{fileMapa ? 'MAPA LISTO' : 'SUBIR MAPA (OBLIGATORIO)'}</div>
-            <div style={{ fontSize: '10px', color: darkMode ? '#94a3b8' : '#888' }}>{fileMapa ? fileMapa.name : 'Lectura de mapa requerida'}</div>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileMapa ? '#22c55e' : '#2563eb' }}>
+              {fileMapa ? 'MAPA LISTO' : 'SUBIR MAPA (OBLIGATORIO)'}
+            </div>
+            <div style={{ fontSize: '10px', color: darkMode ? '#94a3b8' : '#888', wordBreak: 'break-all' }}>
+              {fileMapa ? fileMapa.name : 'Lectura de mapa requerida'}
+            </div>
+
+            {/* 🗑️ BOTÓN QUITAR MAPA */}
+            {fileMapa && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // Evita abrir el selector de archivos
+                  setFileMapa(null);
+                  document.getElementById('fileMapa').value = '';
+                }}
+                style={{
+                  marginTop: '6px',
+                  backgroundColor: 'transparent',
+                  color: '#ef4444',
+                  border: '1px solid #ef4444',
+                  borderRadius: '3px',
+                  padding: '2px 8px',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕ Quitar archivo
+              </button>
+            )}
           </div>
 
+          {/* --- 3. SUBIR PASS --- */}
           <div style={styles.fileBox(!!filePass, false)} onClick={() => document.getElementById('filePass').click()}>
             <input type="file" id="filePass" style={{ display: 'none' }} onChange={(e) => setFilePass(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🔑</div>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: filePass ? '#22c55e' : (darkMode ? '#94a3b8' : '#333') }}>{filePass ? 'PASS LISTO' : 'SUBIR PASS (OPCIONAL)'}</div>
-            <div style={{ fontSize: '10px', color: darkMode ? '#64748b' : '#888' }}>{filePass ? filePass.name : 'Solo si el archivo lo requiere'}</div>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: filePass ? '#22c55e' : (darkMode ? '#94a3b8' : '#333') }}>
+              {filePass ? 'PASS LISTO' : 'SUBIR PASS (OPCIONAL)'}
+            </div>
+            <div style={{ fontSize: '10px', color: darkMode ? '#64748b' : '#888', wordBreak: 'break-all' }}>
+              {filePass ? filePass.name : 'Solo si el archivo lo requiere'}
+            </div>
+
+            {/* 🗑️ BOTÓN QUITAR PASS */}
+            {filePass && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // Evita abrir el selector de archivos
+                  setFilePass(null);
+                  document.getElementById('filePass').value = '';
+                }}
+                style={{
+                  marginTop: '6px',
+                  backgroundColor: 'transparent',
+                  color: '#ef4444',
+                  border: '1px solid #ef4444',
+                  borderRadius: '3px',
+                  padding: '2px 8px',
+                  fontSize: '9px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕ Quitar archivo
+              </button>
+            )}
           </div>
         </div>
 
@@ -526,10 +613,9 @@ const UploadFile = ({ session }) => {
           >
             {loading ? 'PROCESANDO...' :
               !formData.patente ? 'FALTA PATENTE' :
-                !fileId ? 'FALTA ARCHIVO ID' :
-                  !fileMapa ? 'FALTA ARCHIVO MAPA' :
-                    !servicioSel ? 'SELECCIONA SERVICIO' :
-                      'CARGAR ARCHIVOS'}
+                !fileMapa ? 'FALTA ARCHIVO MAPA' :
+                  !servicioSel ? 'SELECCIONA SERVICIO' :
+                    'CARGAR ARCHIVOS'}
           </button>
         </div>
       </div>

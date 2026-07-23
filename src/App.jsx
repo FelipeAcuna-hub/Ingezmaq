@@ -56,7 +56,7 @@ function App() {
         fontWeight: 'bold',
         letterSpacing: '1px'
       }}>
-        CARGANDO PORTAL INGEZMAQ...
+        CARGANDO PORTAL CHIPTUNING...
       </div>
     );
   }
