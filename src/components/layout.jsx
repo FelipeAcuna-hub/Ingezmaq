@@ -124,7 +124,7 @@ const SidebarLink = ({ to, currentPath, icon, text, onClick, activeStyle, inacti
           {text}
         </div>
 
-        {/* BADGE NOTIFICACIÓN SOLO SI HAY PENDIENTES / MENSAJES NUEVOS */}
+        {/* BADGE NOTIFICACIÓN SOLO SI HAY PENDIENTES / ARCHIVOS ACTIVOS */}
         {badgeCount > 0 && (
           <span className="layout-badge-pulse" style={{
             backgroundColor: '#e11d48',
@@ -146,17 +146,12 @@ const SidebarLink = ({ to, currentPath, icon, text, onClick, activeStyle, inacti
 // --- CÁLCULO DE HORARIO CHILENO ---
 const checkEstaAbierto = () => {
   const ahora = new Date();
-  
-  // Obtener hora y día en zona horaria local (Chile/Santiago)
   const horaChile = new Date(ahora.toLocaleString("en-US", { timeZone: "America/Santiago" }));
-  const diaSemana = horaChile.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+  const diaSemana = horaChile.getDay();
   const hora = horaChile.getHours();
   const minutos = horaChile.getMinutes();
 
-  // Lunes (1) a Viernes (5)
   const esDiaHabil = diaSemana >= 1 && diaSemana <= 5;
-  
-  // De 9:00 a 18:30 (18.5 en formato decimal)
   const tiempoEnHoras = hora + (minutos / 60);
   const esHorarioHabil = tiempoEnHoras >= 9 && tiempoEnHoras < 18.5;
 
@@ -168,6 +163,7 @@ const Layout = ({ session }) => {
   const [displayName, setDisplayName] = useState("USUARIO");
   const [status, setStatus] = useState({ is_online: true, mensaje: 'CARGANDO ESTADO...' });
   const [ticketCount, setTicketCount] = useState(0);
+  const [fileCount, setFileCount] = useState(0); // 🔴 ESTADO PARA NOTIFICACIÓN DE ARCHIVOS
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
@@ -192,12 +188,40 @@ const Layout = ({ session }) => {
   ];
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
 
-  // 🛠️ LÓGICA FILTRADA: SOLO MUESTRA NOTIFICACIÓN EN 'PENDIENTE' O 'MENSAJES NUEVOS'
+  // 📁 NOTIFICACIÓN DE ARCHIVOS ("En Gestión" o "Completado")
+  const fetchActiveFilesCount = useCallback(async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      let queryFiles = supabase
+        .from('archivos') // Reemplaza 'archivos' por el nombre exacto de tu tabla si difiere
+        .select('id, estado, user_id');
+
+      if (!isAdmin) {
+        queryFiles = queryFiles.eq('user_id', session.user.id);
+      }
+
+      const { data: filesData, error } = await queryFiles;
+      if (error || !filesData) return;
+
+      // Filtramos por los estados requeridos (Asegúrate que coincidan con cómo los guardas en BD)
+      const count = filesData.filter(f => 
+        f.estado === 'En gestión' || 
+        f.estado === 'En Gestión' ||
+        f.estado === 'en_gestion'
+      ).length;
+
+      setFileCount(count);
+    } catch (err) {
+      console.error("Error calculando notificaciones de archivos:", err);
+    }
+  }, [session?.user?.id, isAdmin]);
+
+  // 🛠️ NOTIFICACIÓN DE TICKETS
   const fetchPendingTicketsCount = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
-      // 1. Obtener los tickets relevantes
       let queryTickets = supabase
         .from('tickets')
         .select('id, estado, user_id');
@@ -209,10 +233,7 @@ const Layout = ({ session }) => {
       const { data: ticketsData, error: errTickets } = await queryTickets;
       if (errTickets || !ticketsData) return;
 
-      // 2. Tickets con estado 'Pendiente' siempre suman +1
       let count = ticketsData.filter(t => t.estado === 'Pendiente').length;
-
-      // 3. Para tickets en 'En Curso' o 'Resuelto', revisamos si el último mensaje lo envió la OTRA parte
       const otherTickets = ticketsData.filter(t => t.estado !== 'Pendiente');
 
       for (const t of otherTickets) {
@@ -225,8 +246,6 @@ const Layout = ({ session }) => {
 
         if (msgs && msgs.length > 0) {
           const lastMsg = msgs[0];
-          // Si soy Admin y el último mensaje lo mandó el cliente (is_admin_reply === false)
-          // O si soy Cliente y el último mensaje fue una respuesta del Admin (is_admin_reply === true)
           if (isAdmin ? !lastMsg.is_admin_reply : lastMsg.is_admin_reply) {
             count += 1;
           }
@@ -253,7 +272,6 @@ const Layout = ({ session }) => {
       const isAuto = dbState === 'auto' || dbState === true || dbState === "true";
       const isManualOff = dbState === 'manual_off' || dbState === false || dbState === "false";
       
-      // ✅ CORREGIDO: Usamos checkEstaAbierto() en lugar de checkAutoOnline()
       const isScheduleOnline = checkEstaAbierto();
 
       if (isAuto) {
@@ -270,7 +288,6 @@ const Layout = ({ session }) => {
 
     } catch (err) {
       console.error("Error actualizando banner corporativo:", err);
-      // ✅ CORREGIDO: Usamos checkEstaAbierto() en el fallback
       const localSchedule = checkEstaAbierto();
       setStatus({
         is_online: localSchedule,
@@ -298,18 +315,22 @@ const Layout = ({ session }) => {
     fetchUserData();
     updateBannerStatus();
     fetchPendingTicketsCount();
+    fetchActiveFilesCount();
 
     const timer = setInterval(updateBannerStatus, 60000);
     window.addEventListener('config-updated', updateBannerStatus);
 
-    // ⚡ REALTIME CANAL TRIPLE: Escucha tickets e inserciones de mensajes
+    // ⚡ REALTIME CANAL TRIPLE: Escucha tickets, mensajes y archivos
     const channel = supabase
-      .channel('realtime_tickets_notifications')
+      .channel('realtime_layout_notifications')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, () => {
         fetchPendingTicketsCount();
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ticket_messages' }, () => {
         fetchPendingTicketsCount();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'archivos' }, () => {
+        fetchActiveFilesCount();
       })
       .subscribe();
 
@@ -318,7 +339,7 @@ const Layout = ({ session }) => {
       window.removeEventListener('config-updated', updateBannerStatus);
       supabase.removeChannel(channel);
     };
-  }, [session, updateBannerStatus, fetchPendingTicketsCount]);
+  }, [session, updateBannerStatus, fetchPendingTicketsCount, fetchActiveFilesCount]);
 
   const toggleTheme = () => {
     const nextMode = !darkMode;
@@ -369,17 +390,6 @@ const Layout = ({ session }) => {
       height: 'auto',
       objectFit: 'contain',
       marginBottom: '12px'
-    },
-    instagramBrand: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '6px',
-      color: '#9ca3af',
-      fontSize: '12px',
-      textDecoration: 'none',
-      transition: 'color 0.2s ease',
-      cursor: 'pointer'
     },
     navItem: { padding: '13px 20px', cursor: 'pointer', color: '#9ca3af', listStyle: 'none', textDecoration: 'none', display: 'flex', alignItems: 'center', fontSize: '12.5px', fontWeight: 600, letterSpacing: '0.02em', borderRadius: '9px', margin: '2px 10px', transition: 'all 0.2s ease' },
     navItemActive: { padding: '13px 20px', color: 'white', background: 'linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%)', listStyle: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', fontSize: '12.5px', letterSpacing: '0.02em', borderRadius: '9px', margin: '2px 10px', boxShadow: '0 4px 14px rgba(37,99,235,0.35)' },
@@ -494,7 +504,6 @@ const Layout = ({ session }) => {
           <Link to="/" style={{ display: 'block', width: '100%', textAlign: 'center' }} onClick={() => setIsMenuOpen(false)}>
             <img src={logoImg} alt="Chiptuning Logo" style={styles.logoImg} />
           </Link>
-
         </div>
 
         <ul className="layout-nav-scroll" style={{ padding: '14px 0', margin: 0, listStyle: 'none', overflowY: 'auto' }}>
@@ -540,11 +549,13 @@ const Layout = ({ session }) => {
             inactiveStyle={styles.navItem}
           />
 
+          {/* 🔴 NOTIFICACIÓN DE ARCHIVOS ("En Gestión" o "Completado") */}
           <SidebarLink
             to="/archivos"
             currentPath={location.pathname}
             icon={<Icon.File />}
             text="ARCHIVOS"
+            badgeCount={fileCount}
             onClick={() => setIsMenuOpen(false)}
             activeStyle={styles.navItemActive}
             inactiveStyle={styles.navItem}

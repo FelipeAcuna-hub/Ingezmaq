@@ -68,11 +68,12 @@ const Tickets = ({ session }) => {
   };
 
   const fetchMessages = async (ticketId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('ticket_messages')
       .select('*')
       .eq('ticket_id', ticketId)
       .order('created_at', { ascending: true });
+    if (error) console.error("Error al cargar mensajes:", error);
     if (data) setMessages(data);
   };
 
@@ -82,12 +83,66 @@ const Tickets = ({ session }) => {
     window.open(`https://wa.me/${telefonoSoporte}?text=${texto}`, '_blank');
   };
 
-  const enviarNotificacionEmail = async (destinatario, asuntoEmail, cuerpoHtml) => {
+  // 📧 FUNCIÓN MODIFICADA PARA ENVIAR PLANTILLA HTML BONITA
+  const enviarNotificacionEmail = async (destinatario, asuntoEmail, mensajeTexto, fileUrl = null) => {
     try {
+      // Plantilla HTML con diseño oscuro corporativo CHIP TUNING
+      const plantillaHtml = `
+        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #030712; padding: 25px; color: #ffffff; margin: 0;">
+          <div style="max-width: 580px; margin: 0 auto; background-color: #070f24; border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            
+            <!-- CABECERA INSTITUCIONAL -->
+            <div style="background-color: #000000; padding: 25px; text-align: center; border-bottom: 3px solid #ea580c;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 20px; letter-spacing: 2px; font-weight: bold; text-transform: uppercase;">CHIP TUNING</h1>
+              <span style="color: #ea580c; font-size: 11px; font-weight: bold; letter-spacing: 1px; display: block; margin-top: 4px;">SISTEMA DE SOPORTE TÉCNICO</span>
+            </div>
+
+            <!-- CUERPO DE LA NOTIFICACIÓN -->
+            <div style="padding: 30px;">
+              <h2 style="font-size: 16px; color: #ffffff; margin-top: 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                📌 ${asuntoEmail}
+              </h2>
+
+              <div style="background-color: #0d1527; border: 1px solid #1e293b; padding: 20px; border-radius: 8px; margin-top: 20px; margin-bottom: 25px;">
+                <div style="font-size: 10px; color: #ea580c; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Detalle del Mensaje</div>
+                <div style="font-size: 14px; color: #e2e8f0; line-height: 1.5; white-space: pre-wrap;">${mensajeTexto}</div>
+
+                ${fileUrl ? `
+                  <div style="margin-top: 15px; padding-top: 12px; border-top: 1px dashed #334155;">
+                    <a href="${fileUrl}" target="_blank" style="color: #38bdf8; font-weight: bold; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+                      📎 DESCARGAR ARCHIVO ADJUNTO
+                    </a>
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- BOTÓN DE ACCIÓN DIRECTA -->
+              <div style="text-align: center; margin-top: 30px;">
+                <a href="https://chiptuning.cl/tickets" style="background-color: #ea580c; color: #ffffff; padding: 12px 26px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 12px; display: inline-block; letter-spacing: 1px;">
+                  VER EN EL PORTAL DE SOPORTE
+                </a>
+              </div>
+            </div>
+
+            <!-- PIE DE PÁGINA -->
+            <div style="background-color: #02050d; padding: 15px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #1e293b;">
+              Este es un mensaje automático generado por la plataforma Chiptuning.cl
+            </div>
+
+          </div>
+        </div>
+      `;
+
       await supabase.functions.invoke('swift-function', {
-        body: { to: destinatario, subject: asuntoEmail, html: cuerpoHtml },
+        body: { 
+          to: destinatario, 
+          subject: asuntoEmail, 
+          html: plantillaHtml 
+        },
       });
-    } catch (err) { console.error("Error email:", err); }
+    } catch (err) { 
+      console.error("Error email:", err); 
+    }
   };
 
   const handleFileUpload = async (e) => {
@@ -116,16 +171,19 @@ const Tickets = ({ session }) => {
       alert("Error al subir archivo: " + error.message);
     } finally {
       setUploadingFile(false);
+      e.target.value = '';
     }
   };
 
   const insertarMensaje = async (texto, fileUrl = null) => {
+    // 💡 Corregido: la columna real en la tabla es "mensaje" (antes decía "menssage", que no existe)
     const { error } = await supabase.from('ticket_messages').insert({
       ticket_id: selectedTicket.id,
-      user_id: session.user.id,
-      mensaje: texto,
+      sender_id: session.user.id, // 👈 Nombre correcto según tu base de datos
+      mensaje: texto,   // columna que usa la UI para mostrar el mensaje
+      message: texto,   // 👈 la tabla exige esta columna como NOT NULL, se manda el mismo texto
       file_url: fileUrl,
-      is_admin_reply: isAdmin
+      is_admin_reply: isAdmin // 👈 Agregado: sin esto, todos los mensajes se veían como si fueran del cliente
     });
 
     if (!error) {
@@ -134,7 +192,8 @@ const Tickets = ({ session }) => {
       await enviarNotificacionEmail(
         emailDestino, 
         `Nuevo mensaje en ticket: ${selectedTicket.asunto}`, 
-        `<p>${texto}</p>${fileUrl ? `<a href="${fileUrl}">Descargar Archivo</a>` : ''}`
+        texto,
+        fileUrl
       );
     } else {
       console.error("Error al insertar mensaje:", error);
@@ -206,15 +265,12 @@ const Tickets = ({ session }) => {
       asunto,
       mensaje_inicial: mensajeInicial,
       estado: 'Pendiente',
-      file_url: uploadedFileUrl
+      file_url: uploadedFileUrl,
+      is_admin_ticket: isAdmin // 👈 para saber si el mensaje inicial lo escribió el admin (ticket creado a nombre de un cliente)
     });
 
     if (!error) {
       alert("✅ Ticket enviado exitosamente.");
-      const linkAdjuntoHtml = uploadedFileUrl 
-        ? `<p><strong>📎 Archivo Adjunto Inicial:</strong> <a href="${uploadedFileUrl}">Descargar adjunto</a></p>` 
-        : '';
-
       const clienteTarget = clientes.find(c => c.id === targetUserId);
       const emailNotif = isAdmin ? clienteTarget?.email : ADMIN_EMAILS.join(',');
 
@@ -222,7 +278,8 @@ const Tickets = ({ session }) => {
         await enviarNotificacionEmail(
           emailNotif, 
           `NUEVO TICKET: ${asunto}`, 
-          `<p>${mensajeInicial}</p>${linkAdjuntoHtml}`
+          mensajeInicial,
+          uploadedFileUrl
         );
       }
       
@@ -279,23 +336,25 @@ const Tickets = ({ session }) => {
       overflow: 'hidden',
       border: darkMode ? '1px solid #334155' : 'none'
     },
-    message: (isAdminMsg) => ({
-      alignSelf: isAdminMsg ? 'flex-start' : 'flex-end',
-      backgroundColor: isAdminMsg 
-        ? (darkMode ? '#334155' : '#f1f1f1') 
-        : '#e11d48',
-      color: isAdminMsg 
-        ? (darkMode ? '#f1f5f9' : '#333') 
-        : 'white',
+    // 💡 "esMio" es relativo a quién está viendo el chat: mis propios mensajes siempre a la derecha (rojo),
+    // los del otro (cliente o admin, según corresponda) siempre a la izquierda (gris).
+    message: (esMio) => ({
+      alignSelf: esMio ? 'flex-end' : 'flex-start',
+      backgroundColor: esMio 
+        ? '#e11d48' 
+        : (darkMode ? '#334155' : '#f1f1f1'),
+      color: esMio 
+        ? 'white' 
+        : (darkMode ? '#f1f5f9' : '#333'),
       padding: '10px 15px', borderRadius: '10px', marginBottom: '10px', maxWidth: '80%', fontSize: '14px',
       wordBreak: 'break-word', overflowWrap: 'anywhere', display: 'flex', flexDirection: 'column'
     }),
-    messageDate: (isAdminMsg) => ({
+    messageDate: (esMio) => ({
       fontSize: '10px',
       marginTop: '5px',
       alignSelf: 'flex-end',
       opacity: 0.8,
-      color: isAdminMsg ? (darkMode ? '#94a3b8' : '#666') : '#f8fafc'
+      color: esMio ? '#f8fafc' : (darkMode ? '#94a3b8' : '#666')
     }),
     tableHeader: {
       textAlign: 'left', 
@@ -440,37 +499,48 @@ const Tickets = ({ session }) => {
               flexDirection: 'column', 
               backgroundColor: darkMode ? '#0f172a' : '#f9f9f9' 
             }}>
-              {/* Mensaje inicial del ticket */}
-              <div style={styles.message(false)}>
-                <strong>Inicio:</strong><br/>{selectedTicket.mensaje_inicial}
-                {selectedTicket.file_url && (
-                  <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: '6px' }}>
-                    <a href={selectedTicket.file_url} target="_blank" rel="noreferrer" style={{ color: 'white', fontWeight: 'bold', fontSize: '12px', textDecoration: 'underline' }}>
-                      📥 DESCARGAR ADJUNTO INICIAL
-                    </a>
+              {/* Mensaje inicial del ticket. 
+                  selectedTicket.is_admin_ticket indica si fue el admin quien lo escribió (ticket creado a nombre de un cliente).
+                  Requiere la columna: alter table tickets add column is_admin_ticket boolean default false; */}
+              {(() => {
+                // El mensaje "Inicio" siempre se muestra como si lo hubiera escrito el administrador
+                const inicioEsMio = isAdmin;
+                return (
+                  <div style={styles.message(inicioEsMio)}>
+                    <strong>Inicio:</strong><br/>{selectedTicket.mensaje_inicial}
+                    {selectedTicket.file_url && (
+                      <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: '6px' }}>
+                        <a href={selectedTicket.file_url} target="_blank" rel="noreferrer" style={{ color: inicioEsMio ? 'white' : '#e11d48', fontWeight: 'bold', fontSize: '12px', textDecoration: 'underline' }}>
+                          📥 DESCARGAR ADJUNTO INICIAL
+                        </a>
+                      </div>
+                    )}
+                    <span style={styles.messageDate(inicioEsMio)}>
+                      {formatDateTime(selectedTicket.created_at)}
+                    </span>
                   </div>
-                )}
-                <span style={styles.messageDate(false)}>
-                  {formatDateTime(selectedTicket.created_at)}
-                </span>
-              </div>
+                );
+              })()}
               
-              {/* Resto de mensajes en el chat */}
-              {messages.map(m => (
-                <div key={m.id} style={styles.message(m.is_admin_reply)}>
-                  {m.mensaje}
-                  {m.file_url && (
-                    <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '6px' }}>
-                      <a href={m.file_url} target="_blank" rel="noreferrer" style={{ color: m.is_admin_reply ? '#e11d48' : 'white', fontWeight: 'bold' }}>
-                        📥 DESCARGAR ARCHIVO
-                      </a>
-                    </div>
-                  )}
-                  <span style={styles.messageDate(m.is_admin_reply)}>
-                    {formatDateTime(m.created_at)}
-                  </span>
-                </div>
-              ))}
+              {/* Resto de mensajes en el chat: "esMio" depende de si quien mira es admin o cliente */}
+              {messages.map(m => {
+                const esMio = isAdmin ? m.is_admin_reply : !m.is_admin_reply;
+                return (
+                  <div key={m.id} style={styles.message(esMio)}>
+                    {m.mensaje}
+                    {m.file_url && (
+                      <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '6px' }}>
+                        <a href={m.file_url} target="_blank" rel="noreferrer" style={{ color: esMio ? 'white' : '#e11d48', fontWeight: 'bold' }}>
+                          📥 DESCARGAR ARCHIVO
+                        </a>
+                      </div>
+                    )}
+                    <span style={styles.messageDate(esMio)}>
+                      {formatDateTime(m.created_at)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
 
             <form onSubmit={enviarRespuesta} style={{ 
@@ -481,9 +551,9 @@ const Tickets = ({ session }) => {
               alignItems: 'center',
               backgroundColor: darkMode ? '#1e293b' : '#ffffff'
             }}>
-              <label style={{ cursor: 'pointer', fontSize: '20px', color: darkMode ? '#94a3b8' : '#333' }}>
+              <label style={{ cursor: uploadingFile ? 'default' : 'pointer', fontSize: '20px', color: darkMode ? '#94a3b8' : '#333' }}>
                 {uploadingFile ? '⏳' : '📎'}
-                <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} />
+                <input type="file" style={{ display: 'none' }} onChange={handleFileUpload} disabled={uploadingFile} />
               </label>
               <input 
                 style={{ 
@@ -498,7 +568,9 @@ const Tickets = ({ session }) => {
                 value={nuevoMensaje} 
                 onChange={(e) => setNuevoMensaje(e.target.value)} 
               />
-              <button type="submit" style={styles.btnTicket}>ENVIAR</button>
+              <button type="submit" style={styles.btnTicket} disabled={sendingMsg}>
+                {sendingMsg ? 'ENVIANDO...' : 'ENVIAR'}
+              </button>
             </form>
           </div>
         </div>

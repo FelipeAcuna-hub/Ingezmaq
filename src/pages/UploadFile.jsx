@@ -433,6 +433,7 @@ const UploadFile = ({ session }) => {
               <option value="">Seleccionar</option>
               <option value="Gasolina">Gasolina</option>
               <option value="Diesel">Diesel</option>
+              <option value="Híbrido">Híbrido</option>
             </select>
           </div>
         </div>

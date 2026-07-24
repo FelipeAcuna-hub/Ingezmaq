@@ -7,6 +7,7 @@ import Layout from './components/layout';
 // Importación de tus páginas
 import Login from './pages/Login';
 import RecuperarPassword from './pages/RecuperarPassword';
+import ActualizarPassword from './pages/ActualizarPassword'; // 👈 Asegúrate de que esté importado
 import Dashboard from './pages/Dashboard';
 import Perfil from './pages/Perfil';
 import Creditos from './pages/Creditos';
@@ -17,23 +18,17 @@ import Admin from './pages/Admin';
 import UploadFile from './pages/UploadFile'; 
 import Simulador from './pages/Simulador';
 import Clientes from './pages/Clientes';
-import ActualizarPassword from './pages/ActualizarPassword';
 
 function App() {
-  // 🔌 CONEXIÓN REAL: Arrancamos con la sesión vacía (null) para que la busque en Supabase
   const [session, setSession] = useState(null);
-  
-  // ACTIVADO: Volvemos a poner loading en true para que valide el token antes de dibujar las pantallas
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Obtener sesión inicial guardada en el navegador al cargar la app
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
 
-    // 2. Escuchar cambios en tiempo real (Login, Logout, Cierre de Token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       console.log("Estado de autenticación cambiado:", _event);
       setSession(currentSession);
@@ -43,7 +38,6 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Pantalla de carga mientras se verifica la sesión con el servidor
   if (loading) {
     return (
       <div style={{ 
@@ -62,7 +56,6 @@ function App() {
     );
   }
 
-  // --- LÓGICA DE ADMINISTRADOR UNIFICADA (LOS 3 CORREOS + ROL) ---
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
     'oliver.zuniga@gmail.com',
@@ -76,7 +69,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* RUTA PÚBLICA: Si no hay sesión muestra Login, si hay manda al Dashboard */}
+        {/* --- RUTAS PÚBLICAS / INDEPENDIENTES (SIN LAYOUT) --- */}
         <Route 
           path="/login" 
           element={!session ? <Login /> : <Navigate to="/" />} 
@@ -90,8 +83,13 @@ function App() {
           element={!session ? <RecuperarPassword /> : <Navigate to="/" />} 
         />
         
+        {/* 🚀 RUTA INDEPENDIENTE: Pantalla limpia de Actualizar Contraseña */}
+        <Route 
+          path="/actualizar-password" 
+          element={<ActualizarPassword session={session} />} 
+        />
+        
         {/* --- GRUPO DE RUTAS PROTEGIDAS CON LAYOUT --- */}
-        {/* 🛡️ BLINDAJE: Verificamos de forma estricta que exista session y session.user para renderizar el Layout */}
         <Route element={(session && session.user) ? <Layout session={session} /> : <Navigate to="/login" />}>
           
           <Route path="/" element={<Dashboard session={session} />} />
@@ -103,7 +101,6 @@ function App() {
           <Route path="/upload" element={<UploadFile session={session} />} />
           <Route path="/simulador" element={<Simulador session={session} />} />
           <Route path="/clientes" element={<Clientes session={session} />} />
-          <Route path="/actualizar-password" element={<ActualizarPassword session={session} />} />
           
           {/* Ruta Exclusiva para Administradores */}
           <Route 
@@ -114,7 +111,7 @@ function App() {
         </Route>
         {/* --- FIN DEL GRUPO CON LAYOUT --- */}
 
-        {/* Redirección por defecto si la ruta no existe */}
+        {/* Redirección por defecto */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

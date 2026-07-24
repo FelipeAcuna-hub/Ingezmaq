@@ -54,10 +54,24 @@ const Clientes = ({ session }) => {
   const handleEliminar = async (id) => {
     if (window.confirm("¿Estás seguro de eliminar este registro? Esta acción no se puede deshacer.")) {
       try {
-        const { error } = await supabase.from('profiles').delete().eq('id', id);
+        // Agregamos .select() para confirmar que devolvió el objeto borrado
+        const { data, error } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', id)
+          .select();
+  
         if (error) throw error;
-        alert("Registro eliminado.");
-        fetchClientes();
+  
+        // Si data está vacío, significa que RLS o una Foreign Key bloqué la eliminación
+        if (!data || data.length === 0) {
+          alert("⚠️ No se pudo eliminar el registro. Verifica los permisos RLS en Supabase o si el usuario tiene registros vinculados (tickets, archivos, etc.).");
+          return;
+        }
+  
+        // Actualizamos el estado local de inmediato
+        setClientes(prevClientes => prevClientes.filter(c => c.id !== id));
+        alert("✅ Registro eliminado correctamente.");
       } catch (error) {
         alert("Error al eliminar: " + error.message);
       }
