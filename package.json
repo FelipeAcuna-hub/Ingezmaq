@@ -5,7 +5,9 @@
     "main": "index.js",
     "scripts": {
         "dev": "vite",
-        "build": "vite build",
+        "predev:full": "rm -rf dist",
+        "dev:full": "netlify dev",
+        "build": "vite build && echo '/*   /index.html   200' > dist/_redirects",
         "preview": "vite preview"
     },
     "keywords": [],
@@ -15,6 +17,7 @@
     "devDependencies": {
         "@tailwindcss/postcss": "^4.2.1",
         "autoprefixer": "^10.4.27",
+        "netlify-cli": "^27.0.1",
         "postcss": "^8.5.8",
         "tailwindcss": "^4.2.1"
     },

@@ -246,16 +246,21 @@ const Admin = ({ session }) => {
   };
 
   const cambiarEstadoInmediato = async (nuevoEstado) => {
+    const estadoAnterior = config?.is_online;
     setConfig(prev => ({ ...prev, is_online: nuevoEstado }));
     try {
-      await supabase
+      const { error } = await supabase
         .from('configuracion_global')
         .update({ is_online: nuevoEstado })
         .eq('id', 'atencion_cliente');
-        
+
+      if (error) throw error;
+
       window.dispatchEvent(new CustomEvent('config-updated'));
     } catch (err) {
       console.error("Error guardando configuración global:", err);
+      setConfig(prev => ({ ...prev, is_online: estadoAnterior }));
+      alert("No se pudo guardar el cambio: " + err.message);
     }
   };
 

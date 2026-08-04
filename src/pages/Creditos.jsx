@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
 
 // --- ICONOS SVG EN LÍNEA (sin dependencias externas) ---
 const Icon = {
@@ -11,16 +11,6 @@ const Icon = {
   Bolt: (p) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
       <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </svg>
-  ),
-  Spark: (p) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
-      <path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" />
-    </svg>
-  ),
-  Crown: (p) => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
-      <path d="m2 8 4 3 6-7 6 7 4-3-2 12H4Z" />
     </svg>
   ),
   Lock: (p) => (
@@ -45,40 +35,62 @@ const Icon = {
   )
 };
 
-const PAQUETES = [
-  { qty: 10, tag: null },
-  { qty: 30, tag: 'MÁS ELEGIDO' },
-  { qty: 50, tag: 'MEJOR VALOR' }
-];
+const PAQUETES = [10, 30, 50];
 
 const Creditos = ({ session }) => {
   const [loading, setLoading] = useState(false);
   const [loadingQty, setLoadingQty] = useState(null);
-  
+  const [payStatus, setPayStatus] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
+
   // Estado para la cantidad de créditos personalizada ingresada por el usuario
   const [customQty, setCustomQty] = useState('');
 
   // Obtener el estado del tema desde el layout superior
   const { darkMode } = useOutletContext();
 
-  const handlePagarPaquete = (qty) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Al volver desde MercadoPago, back_urls trae ?status=success|failure|pending
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status) {
+      setPayStatus(status);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  const handlePagarPaquete = async (qty) => {
     const numQty = parseInt(qty);
     if (isNaN(numQty) || numQty <= 0) return;
 
+    if (!session?.user?.id) {
+      setErrorMsg('Debes iniciar sesión para comprar créditos.');
+      return;
+    }
+
+    setErrorMsg('');
     setLoading(true);
     setLoadingQty(numQty);
-    const totalCLP = numQty * 10000;
 
-    localStorage.setItem('pending_credits', numQty);
-    localStorage.setItem('pending_amount', totalCLP);
+    try {
+      const res = await fetch('/.netlify/functions/create-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qty: numQty, userId: session.user.id }),
+      });
 
-    const urlCheckoutSandbox = `https://www.mercadopago.cl/checkout/v1/payment/redirect/?source=link&preference-id=anonymous&client_id=5397606411635255&title=Carga+de+${numQty}+Creditos+Ingezmaq&price=${totalCLP}&currency=CLP&external_reference=${session?.user?.id || 'invitado'}`;
+      const data = await res.json();
+      if (!res.ok || !data.init_point) {
+        throw new Error(data.error || 'No se pudo iniciar el pago');
+      }
 
-    setTimeout(() => {
-      window.open(urlCheckoutSandbox, '_blank');
+      window.location.href = data.init_point;
+    } catch (err) {
+      setErrorMsg(err.message || 'No se pudo conectar con MercadoPago');
       setLoading(false);
       setLoadingQty(null);
-    }, 500);
+    }
   };
 
   // --- TOKENS DE DISEÑO ---
@@ -92,9 +104,6 @@ const Creditos = ({ session }) => {
     brand: '#2563eb',
     brandSoft: darkMode ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff',
     brandLine: darkMode ? 'rgba(37, 99, 235, 0.3)' : '#bfdbfe',
-    gold: darkMode ? '#fbbf24' : '#b45309',
-    goldSoft: darkMode ? 'rgba(251, 191, 36, 0.12)' : '#fffbeb',
-    goldLine: darkMode ? 'rgba(251, 191, 36, 0.3)' : '#fde68a'
   };
 
   const styles = {
@@ -184,7 +193,7 @@ const Creditos = ({ session }) => {
     grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px' },
     card: (highlighted) => ({
       backgroundColor: t.surface,
-      padding: '38px 26px 30px',
+      padding: '30px 26px',
       textAlign: 'center',
       borderRadius: '18px',
       boxShadow: highlighted
@@ -196,12 +205,6 @@ const Creditos = ({ session }) => {
       flexDirection: 'column',
       transform: highlighted ? 'translateY(-6px)' : 'none',
       transition: 'transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease, border-color 0.3s ease'
-    }),
-    ribbon: (color, soft) => ({
-      position: 'absolute', top: '-13px', left: '50%', transform: 'translateX(-50%)',
-      backgroundColor: color, color: darkMode ? '#0f172a' : '#fff', fontSize: '10px', fontWeight: 800, letterSpacing: '0.05em',
-      padding: '6px 14px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '5px',
-      boxShadow: `0 4px 10px ${color}55`, whiteSpace: 'nowrap'
     }),
     qtyIcon: (color, soft) => ({
       width: '46px', height: '46px', borderRadius: '13px', backgroundColor: soft, color: color,
@@ -251,6 +254,38 @@ const Creditos = ({ session }) => {
       <Link className="cred-back" to="/" style={styles.btnBack}>
         <Icon.Arrow /> VOLVER AL DASHBOARD
       </Link>
+
+      {payStatus && (
+        <div style={{
+          padding: '14px 18px',
+          borderRadius: '12px',
+          marginBottom: '20px',
+          fontSize: '13.5px',
+          fontWeight: 600,
+          backgroundColor: payStatus === 'success' ? (darkMode ? 'rgba(22,163,74,0.15)' : '#f0fdf4') : payStatus === 'pending' ? (darkMode ? 'rgba(245,158,11,0.15)' : '#fffbeb') : (darkMode ? 'rgba(220,38,38,0.15)' : '#fef2f2'),
+          color: payStatus === 'success' ? '#16a34a' : payStatus === 'pending' ? '#b45309' : '#dc2626',
+          border: `1px solid ${payStatus === 'success' ? '#16a34a55' : payStatus === 'pending' ? '#b4530955' : '#dc262655'}`
+        }}>
+          {payStatus === 'success' && 'Pago recibido. Tus créditos se acreditarán en unos segundos.'}
+          {payStatus === 'pending' && 'Tu pago está pendiente de confirmación. Te avisaremos cuando se acredite.'}
+          {payStatus === 'failure' && 'El pago no se pudo completar. Puedes intentarlo nuevamente.'}
+        </div>
+      )}
+
+      {errorMsg && (
+        <div style={{
+          padding: '14px 18px',
+          borderRadius: '12px',
+          marginBottom: '20px',
+          fontSize: '13.5px',
+          fontWeight: 600,
+          backgroundColor: darkMode ? 'rgba(220,38,38,0.15)' : '#fef2f2',
+          color: '#dc2626',
+          border: '1px solid #dc262655'
+        }}>
+          {errorMsg}
+        </div>
+      )}
 
       <div style={styles.heroCard}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
@@ -317,20 +352,14 @@ const Creditos = ({ session }) => {
 
       {/* PAQUETES PREDEFINIDOS EXCLUSIVOS */}
       <div style={styles.grid}>
-        {PAQUETES.map(({ qty, tag }, i) => {
-          const highlighted = tag === 'MÁS ELEGIDO';
+        {PAQUETES.map((qty, i) => {
+          const highlighted = true;
           const isThisLoading = loading && loadingQty === qty;
-          const accentColor = tag === 'MEJOR VALOR' ? t.gold : t.brand;
-          const accentSoft = tag === 'MEJOR VALOR' ? t.goldSoft : t.brandSoft;
+          const accentColor = t.brand;
+          const accentSoft = t.brandSoft;
 
           return (
             <div key={qty} className="cred-card" style={{ ...styles.card(highlighted), animationDelay: `${i * 60}ms` }}>
-              {tag && (
-                <span style={styles.ribbon(accentColor, accentSoft)}>
-                  {tag === 'MEJOR VALOR' ? <Icon.Crown /> : <Icon.Spark />} {tag}
-                </span>
-              )}
-
               <div style={styles.qtyIcon(accentColor, accentSoft)}>
                 <Icon.Bolt />
               </div>

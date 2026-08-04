@@ -1,0 +1,19 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[dev]
+  command = "npm run dev"
+  targetPort = 5173
+  port = 8888
+  autoLaunch = false
+
+# Las funciones se llaman directo en /.netlify/functions/<nombre> (frontend y
+# notification_url de MercadoPago). No se usa un redirect /api/* porque en
+# `netlify dev` el fallback SPA de Vite responde 200 antes de que se evalúe el
+# redirect, y la llamada nunca llega a la función.
+#
+# El fallback SPA "/* -> /index.html" para producción ya lo cubre public/_redirects
+# (se copia a dist/ en el build). No se agrega acá porque en `netlify dev` rompe
+# los módulos virtuales de Vite (/@vite/client, /src/main.jsx, etc.), dejando la página en blanco.
