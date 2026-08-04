@@ -30,10 +30,6 @@ exports.handler = async (event) => {
   // El external_reference viaja hasta el webhook para saber a quién y cuánto acreditar.
   const externalReference = `${userId}::${qty}::${Date.now()}`;
 
-  // TEMPORAL — solo para probar el pago real en producción con el menor gasto posible.
-  // Sacar este if apenas se termine de probar: deja comprar 1 crédito a $2.000 en vez de $10.000.
-  const unitPrice = qty === 1 ? 2000 : UNIT_PRICE_CLP;
-
   try {
     const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
     const preference = new Preference(client);
@@ -44,7 +40,7 @@ exports.handler = async (event) => {
           id: 'creditos-chiptuning',
           title: 'Créditos Chiptuning',
           quantity: qty,
-          unit_price: unitPrice,
+          unit_price: UNIT_PRICE_CLP,
           currency_id: 'CLP',
         },
       ],
