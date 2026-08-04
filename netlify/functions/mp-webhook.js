@@ -102,7 +102,7 @@ exports.handler = async (event) => {
     const destinatario = perfil.email;
     if (destinatario) {
       const montoCLP = Number(payment.transaction_amount || 0).toLocaleString('es-CL');
-      const fechaPago = new Date().toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+      const fechaPago = new Date().toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Santiago' });
       const emailHtml = `
         <div style="font-family: 'Helvetica', Arial, sans-serif; background-color: #f9f9f9; padding: 40px 0;">
           <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
