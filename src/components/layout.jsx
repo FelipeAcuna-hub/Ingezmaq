@@ -650,7 +650,7 @@ const Layout = ({ session }) => {
           <div style={styles.creditPill}>
             <Icon.Card style={{ color: '#ffedd5' }} />
             <span style={{ color: '#ffffff', fontSize: '15px', fontWeight: '800' }}>{dbCredits.toLocaleString('es-CL')}</span>
-            <span style={{ display: isMobile ? 'none' : 'inline', color: '#ffedd5', fontSize: '11px', fontWeight: 600 }}>CLP</span>
+            <span style={{ display: isMobile ? 'none' : 'inline', color: '#ffedd5', fontSize: '11px', fontWeight: 600 }}>Credits</span>
             <span style={{ width: '1px', height: '18px', backgroundColor: 'rgba(255,255,255,0.25)' }} />
             <div style={styles.avatarCircle}>{displayName.charAt(0).toUpperCase()}</div>
             <span style={{ color: '#ffffff', fontSize: isMobile ? '11px' : '13px', fontWeight: 700 }}>{displayName.split(' ')[0]}</span>
