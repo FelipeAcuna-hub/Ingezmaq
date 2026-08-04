@@ -42,6 +42,8 @@ const Creditos = ({ session }) => {
   const [loadingQty, setLoadingQty] = useState(null);
   const [payStatus, setPayStatus] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [receipt, setReceipt] = useState(null);
+  const [loadingReceipt, setLoadingReceipt] = useState(false);
 
   // Estado para la cantidad de créditos personalizada ingresada por el usuario
   const [customQty, setCustomQty] = useState('');
@@ -52,13 +54,25 @@ const Creditos = ({ session }) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Al volver desde MercadoPago, back_urls trae ?status=success|failure|pending
+  // y MP agrega su propio payment_id/collection_id a la misma URL.
   useEffect(() => {
     const status = searchParams.get('status');
-    if (status) {
-      setPayStatus(status);
-      setSearchParams({}, { replace: true });
+    if (!status) return;
+
+    setPayStatus(status);
+    const paymentId = searchParams.get('payment_id') || searchParams.get('collection_id');
+    setSearchParams({}, { replace: true });
+
+    if (status === 'success' && paymentId) {
+      setLoadingReceipt(true);
+      fetch(`/.netlify/functions/get-payment?payment_id=${encodeURIComponent(paymentId)}`)
+        .then((res) => res.json())
+        .then((data) => setReceipt(data))
+        .catch(() => setReceipt(null))
+        .finally(() => setLoadingReceipt(false));
     }
-  }, [searchParams, setSearchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handlePagarPaquete = async (qty) => {
     const numQty = parseInt(qty);
@@ -284,6 +298,57 @@ const Creditos = ({ session }) => {
           border: '1px solid #dc262655'
         }}>
           {errorMsg}
+        </div>
+      )}
+
+      {payStatus === 'success' && (loadingReceipt || receipt) && (
+        <div style={{
+          backgroundColor: t.surface,
+          borderRadius: '16px',
+          border: '1px solid #16a34a55',
+          padding: '22px 26px',
+          marginBottom: '20px',
+          boxShadow: darkMode ? '0 4px 20px rgba(0,0,0,0.25)' : '0 1px 2px rgba(17,24,39,0.03), 0 10px 25px rgba(17,24,39,0.04)'
+        }}>
+          {loadingReceipt ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: t.inkSoft, fontSize: '13px', fontWeight: 600 }}>
+              <Icon.Spinner className="cred-spin" /> Buscando comprobante...
+            </div>
+          ) : receipt?.status === 'approved' ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                <span style={{ width: '30px', height: '30px', borderRadius: '50%', backgroundColor: darkMode ? 'rgba(22,163,74,0.15)' : '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon.Check />
+                </span>
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: t.ink }}>Comprobante de pago</h3>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '14px', fontSize: '13px' }}>
+                <div>
+                  <div style={{ color: t.inkFaint, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Créditos acreditados</div>
+                  <div style={{ color: t.ink, fontWeight: 700 }}>{receipt.credits ?? '—'}</div>
+                </div>
+                <div>
+                  <div style={{ color: t.inkFaint, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Monto pagado</div>
+                  <div style={{ color: t.ink, fontWeight: 700 }}>${Number(receipt.amount || 0).toLocaleString('es-CL')} CLP</div>
+                </div>
+                <div>
+                  <div style={{ color: t.inkFaint, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>N° de pago</div>
+                  <div style={{ color: t.ink, fontWeight: 700 }}>{receipt.id}</div>
+                </div>
+                <div>
+                  <div style={{ color: t.inkFaint, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '3px' }}>Fecha</div>
+                  <div style={{ color: t.ink, fontWeight: 700 }}>{receipt.date ? new Date(receipt.date).toLocaleString('es-CL') : '—'}</div>
+                </div>
+              </div>
+              <p style={{ margin: '14px 0 0', fontSize: '12px', color: t.inkFaint }}>
+                También te enviamos este comprobante a tu correo.
+              </p>
+            </>
+          ) : (
+            <p style={{ margin: 0, fontSize: '13px', color: t.inkSoft }}>
+              No pudimos cargar el detalle del comprobante, pero si el pago fue aprobado tus créditos se acreditarán igual. Revisa tu correo o el historial en unos minutos.
+            </p>
+          )}
         </div>
       )}
 

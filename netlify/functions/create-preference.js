@@ -62,8 +62,9 @@ exports.handler = async (event) => {
 
     const result = await preference.create({ body: preferenceBody });
 
-    // Si la app está en modo prueba, MP devuelve sandbox_init_point con el checkout de sandbox.
-    const checkoutUrl = result.sandbox_init_point || result.init_point;
+    // MP sigue devolviendo sandbox_init_point aunque se usen credenciales de producción,
+    // así que no sirve para decidir el modo. init_point es lo correcto en ambos casos.
+    const checkoutUrl = result.init_point;
 
     return {
       statusCode: 200,

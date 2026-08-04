@@ -76,7 +76,7 @@ exports.handler = async (event) => {
 
     const { data: perfil, error: perfilErr } = await supabaseAdmin
       .from('profiles')
-      .select('credits')
+      .select('credits, email')
       .eq('id', userId)
       .single();
 
@@ -89,13 +89,55 @@ exports.handler = async (event) => {
 
     if (updateErr) throw updateErr;
 
-    await supabaseAdmin.from('historial_movimientos').insert({
-      perfil_id: userId,
-      tipo: 'recarga',
+    // Misma tabla que usa Admin.jsx para cargas manuales, para que aparezca en
+    // "Mi historial de créditos" (Historial.jsx) como recarga positiva, no como canje.
+    await supabaseAdmin.from('movimientos').insert({
+      user_id: userId,
+      tipo: 'carga',
       cantidad: qty,
       descripcion: `Recarga vía MercadoPago (pago ${payment.id})`,
-      fecha: new Date().toISOString(),
+      admin_email: null,
     });
+
+    const destinatario = perfil.email;
+    if (destinatario) {
+      const montoCLP = Number(payment.transaction_amount || 0).toLocaleString('es-CL');
+      const fechaPago = new Date().toLocaleString('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+      const emailHtml = `
+        <div style="font-family: 'Helvetica', Arial, sans-serif; background-color: #f9f9f9; padding: 40px 0;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+            <div style="background-color: #000000; padding: 20px; text-align: center;">
+              <h1 style="color: #2563eb; margin: 0; font-size: 24px; letter-spacing: 2px;">CHIPTUNING SYSTEM</h1>
+            </div>
+            <div style="padding: 30px; line-height: 1.6; color: #333;">
+              <h2 style="color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px;">Comprobante de compra de créditos</h2>
+              <p>Hola, tu pago fue aprobado y ya acreditamos los créditos en tu cuenta.</p>
+              <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <tr><td style="padding: 5px 0;"><strong>Créditos acreditados:</strong></td><td>${qty}</td></tr>
+                <tr><td style="padding: 5px 0;"><strong>Monto pagado:</strong></td><td>$${montoCLP} CLP</td></tr>
+                <tr><td style="padding: 5px 0;"><strong>N° de pago MercadoPago:</strong></td><td>${payment.id}</td></tr>
+                <tr><td style="padding: 5px 0;"><strong>Fecha:</strong></td><td>${fechaPago}</td></tr>
+              </table>
+              <div style="text-align: center; margin-top: 30px;">
+                <a href="https://chiptuning.cl/historial" style="background-color: #2563eb; color: white; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">VER MI HISTORIAL</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const { error: emailErr } = await supabaseAdmin.functions.invoke('swift-function', {
+        body: {
+          to: destinatario,
+          subject: `✅ Compra de ${qty} créditos aprobada`,
+          html: emailHtml,
+        },
+      });
+
+      if (emailErr) console.error('Error enviando correo de confirmación de pago', emailErr);
+    } else {
+      console.error('No se encontró email de perfil para enviar comprobante', userId);
+    }
 
     return { statusCode: 200, body: 'ok' };
   } catch (err) {
