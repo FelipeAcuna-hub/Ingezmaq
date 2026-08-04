@@ -250,7 +250,8 @@ const Creditos = ({ session }) => {
   };
 
   // Cálculo del total para el input personalizado
-  const customAmount = customQty ? parseInt(customQty) * 10000 : 0;
+  // TEMPORAL — sacar el caso === 1 apenas se termine de probar el pago real (ver create-preference.js).
+  const customAmount = customQty ? (parseInt(customQty) === 1 ? 2000 : parseInt(customQty) * 10000) : 0;
   const isCustomLoading = loading && loadingQty === parseInt(customQty);
 
   return (
