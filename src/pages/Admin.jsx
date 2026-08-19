@@ -89,6 +89,13 @@ const Icon = {
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
       <polyline points="14 2 14 8 20 8"/>
     </svg>
+  ),
+  Download: (props) => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
   )
 };
 
@@ -97,6 +104,12 @@ const Admin = ({ session }) => {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [movimientos, setMovimientos] = useState([]);
+  const [exportandoId, setExportandoId] = useState(null);
+  const [exportandoTodo, setExportandoTodo] = useState(false);
+  const [descuentoEdit, setDescuentoEdit] = useState('0');
+  const [guardandoDescuento, setGuardandoDescuento] = useState(false);
+  const [searchEspeciales, setSearchEspeciales] = useState('');
+  const [actualizandoEspecialId, setActualizandoEspecialId] = useState(null);
 
   // --- NUEVOS ESTADOS PARA METRICAS DE ARCHIVOS ---
   const [stats, setStats] = useState({ semana: 0, mes: 0, total: 0 });
@@ -116,6 +129,16 @@ const Admin = ({ session }) => {
     'sebastianzunigavaldivia@gmail.com',
     'oliver.zuniga@gmail.com',
     'focaldevs@gmail.com'
+  ];
+
+  // Resumen informativo de accesos. Esto refleja lo que está definido en el
+  // código (App.jsx, layout.jsx, Archivos.jsx, Historial.jsx, Tickets.jsx) —
+  // si se cambian esos accesos, hay que actualizar esta lista a mano.
+  const RESUMEN_ADMINS = [
+    { email: 'sebastianzunigavaldivia@gmail.com', acceso: 'Acceso total (Administración, Clientes, Archivos, Historial, Tickets)' },
+    { email: 'oliver.zuniga@gmail.com', acceso: 'Acceso total (Administración, Clientes, Archivos, Historial, Tickets)' },
+    { email: 'focaldevs@gmail.com', acceso: 'Acceso total (Administración, Clientes, Archivos, Historial, Tickets)' },
+    { email: 'alientechchile@gmail.com', acceso: 'Archivos y Clientes (aprobar/rechazar/eliminar) — sin acceso a Administración' }
   ];
 
   const isAdmin =
@@ -194,7 +217,52 @@ const Admin = ({ session }) => {
 
   const handleOpenDetails = (user) => {
     setSelectedUser(user);
+    setDescuentoEdit(String(user.descuento_porcentaje || 0));
     fetchMovimientos(user.id);
+  };
+
+  const handleGuardarDescuento = async () => {
+    const valor = parseInt(descuentoEdit, 10);
+    if (isNaN(valor) || valor < 0 || valor > 100) {
+      alert('El descuento debe ser un número entre 0 y 100.');
+      return;
+    }
+
+    setGuardandoDescuento(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ descuento_porcentaje: valor })
+        .eq('id', selectedUser.id);
+
+      if (error) throw error;
+
+      setSelectedUser(prev => ({ ...prev, descuento_porcentaje: valor }));
+      setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, descuento_porcentaje: valor } : u));
+    } catch (error) {
+      alert('Error al guardar el descuento: ' + error.message);
+    } finally {
+      setGuardandoDescuento(false);
+    }
+  };
+
+  const handleToggleClienteEspecial = async (userId, valorActual) => {
+    setActualizandoEspecialId(userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ cliente_especial: !valorActual })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, cliente_especial: !valorActual } : u));
+      if (selectedUser?.id === userId) setSelectedUser(prev => ({ ...prev, cliente_especial: !valorActual }));
+    } catch (error) {
+      alert('Error al actualizar cliente especial: ' + error.message);
+    } finally {
+      setActualizandoEspecialId(null);
+    }
   };
 
   const handleAdjustCredits = async (userId, currentCredits, accion) => {
@@ -242,6 +310,139 @@ const Admin = ({ session }) => {
 
     } catch (error) {
       alert("Error: " + error.message);
+    }
+  };
+
+  const handleExportarExcel = async (user) => {
+    setExportandoId(user.id);
+    try {
+      const XLSX = await import('xlsx');
+      const [{ data: recargas, error: errRecargas }, { data: canjes, error: errCanjes }] = await Promise.all([
+        supabase.from('movimientos').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('historial_movimientos').select('*').eq('perfil_id', user.id).order('fecha', { ascending: false })
+      ]);
+
+      if (errRecargas) throw errRecargas;
+      if (errCanjes) throw errCanjes;
+
+      const datosCliente = [
+        { Campo: 'Nombre', Valor: user.full_name || '' },
+        { Campo: 'Apellido', Valor: user.apellido || '' },
+        { Campo: 'Email', Valor: user.email || '' },
+        { Campo: 'Teléfono', Valor: user.phone || '' },
+        { Campo: 'Empresa', Valor: user.company || '' },
+        { Campo: 'RUT', Valor: user.rut || '' },
+        { Campo: 'Actividad', Valor: user.actividad || '' },
+        { Campo: 'País', Valor: user.country || '' },
+        { Campo: 'Fecha de cumpleaños', Valor: user.fecha_nacimiento || '' },
+        { Campo: 'Créditos actuales', Valor: user.credits ?? 0 }
+      ];
+
+      const movimientosCombinados = [
+        ...(recargas || []).map(m => ({
+          sortDate: new Date(m.created_at),
+          Fecha: new Date(m.created_at).toLocaleString('es-CL'),
+          Tipo: m.tipo === 'gasto' ? 'Retiro manual' : 'Recarga',
+          Detalle: m.descripcion,
+          Cantidad: m.tipo === 'gasto' ? -m.cantidad : m.cantidad,
+          Admin: m.admin_email || 'Sistema'
+        })),
+        ...(canjes || []).map(m => ({
+          sortDate: new Date(m.fecha),
+          Fecha: new Date(m.fecha).toLocaleString('es-CL'),
+          Tipo: 'Canje de archivo',
+          Detalle: m.descripcion,
+          Cantidad: -m.cantidad,
+          Admin: '-'
+        }))
+      ]
+        .sort((a, b) => b.sortDate - a.sortDate)
+        .map(({ sortDate, ...fila }) => fila);
+
+      if (movimientosCombinados.length === 0) {
+        movimientosCombinados.push({ Fecha: '', Tipo: '', Detalle: 'Sin movimientos registrados', Cantidad: '', Admin: '' });
+      }
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(datosCliente), 'Datos del cliente');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(movimientosCombinados), 'Movimientos');
+
+      const nombreArchivo = `cliente_${(user.email || user.id).replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+      XLSX.writeFile(wb, nombreArchivo);
+    } catch (error) {
+      alert('Error al exportar: ' + error.message);
+    } finally {
+      setExportandoId(null);
+    }
+  };
+
+  const handleExportarTodoExcel = async () => {
+    setExportandoTodo(true);
+    try {
+      const XLSX = await import('xlsx');
+      const [{ data: recargas, error: errRecargas }, { data: canjes, error: errCanjes }] = await Promise.all([
+        supabase.from('movimientos').select('*').order('created_at', { ascending: false }),
+        supabase.from('historial_movimientos').select('*').order('fecha', { ascending: false })
+      ]);
+
+      if (errRecargas) throw errRecargas;
+      if (errCanjes) throw errCanjes;
+
+      const emailPorId = Object.fromEntries(users.map(u => [u.id, u.email || u.id]));
+
+      const hojaClientes = users.map(u => ({
+        Nombre: u.full_name || '',
+        Apellido: u.apellido || '',
+        Email: u.email || '',
+        Teléfono: u.phone || '',
+        Empresa: u.company || '',
+        RUT: u.rut || '',
+        Actividad: u.actividad || '',
+        País: u.country || '',
+        'Fecha de cumpleaños': u.fecha_nacimiento || '',
+        'Créditos actuales': u.credits ?? 0
+      }));
+
+      const hojaCreditos = (recargas || [])
+        .slice()
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .map(m => ({
+          Cliente: emailPorId[m.user_id] || m.user_id,
+          Fecha: new Date(m.created_at).toLocaleString('es-CL'),
+          Tipo: m.tipo === 'gasto' ? 'Retiro manual' : 'Recarga',
+          Detalle: m.descripcion,
+          Cantidad: m.tipo === 'gasto' ? -m.cantidad : m.cantidad,
+          Admin: m.admin_email || 'Sistema'
+        }));
+
+      const hojaCanjes = (canjes || [])
+        .slice()
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+        .map(m => ({
+          Cliente: emailPorId[m.perfil_id] || m.perfil_id,
+          Fecha: new Date(m.fecha).toLocaleString('es-CL'),
+          Detalle: m.descripcion,
+          Cantidad: -m.cantidad
+        }));
+
+      if (hojaCreditos.length === 0) {
+        hojaCreditos.push({ Cliente: '', Fecha: '', Tipo: '', Detalle: 'Sin recargas registradas', Cantidad: '', Admin: '' });
+      }
+      if (hojaCanjes.length === 0) {
+        hojaCanjes.push({ Cliente: '', Fecha: '', Detalle: 'Sin canjes registrados', Cantidad: '' });
+      }
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaClientes), 'Clientes');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaCanjes), 'Canjes');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hojaCreditos), 'Créditos');
+
+      const fechaHoy = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `todos_los_clientes_${fechaHoy}.xlsx`);
+    } catch (error) {
+      alert('Error al exportar: ' + error.message);
+    } finally {
+      setExportandoTodo(false);
     }
   };
 
@@ -487,6 +688,15 @@ const Admin = ({ session }) => {
       <div style={styles.topBar}>
         <button
           className="admin-refresh"
+          onClick={handleExportarTodoExcel}
+          disabled={exportandoTodo}
+          style={{ ...styles.refreshBtn(exportandoTodo), marginRight: '10px' }}
+        >
+          {exportandoTodo ? <Icon.Refresh className="admin-spin" /> : <Icon.Download />}
+          {exportandoTodo ? 'Generando...' : 'Descargar todo (Excel)'}
+        </button>
+        <button
+          className="admin-refresh"
           onClick={() => {
             fetchUsers();
             fetchFileStats(); // Refrescar métricas también al presionar actualizar
@@ -497,6 +707,35 @@ const Admin = ({ session }) => {
           <Icon.Refresh className={loading ? 'admin-spin' : ''} />
           {loading ? 'Actualizando' : 'Actualizar lista'}
         </button>
+      </div>
+
+      {/* ADMINISTRADORES: quién tiene acceso a qué */}
+      <div style={styles.contentCard}>
+        <h3 style={{ margin: '0 0 4px', fontSize: '14.5px', color: t.ink, fontWeight: 700 }}>Administradores</h3>
+        <p style={{ margin: '0 0 16px', fontSize: '12px', color: t.inkFaint }}>
+          Correos con permisos especiales dentro del portal y a qué secciones tiene acceso cada uno.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {RESUMEN_ADMINS.map((a) => (
+            <div
+              key={a.email}
+              style={{
+                display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px',
+                padding: '10px 12px', borderRadius: '10px',
+                backgroundColor: darkMode ? '#0f172a' : '#fafafa',
+                border: `1px solid ${t.line}`
+              }}
+            >
+              <span style={{
+                fontSize: '12px', fontWeight: 700, color: t.ink,
+                display: 'flex', alignItems: 'center', gap: '6px'
+              }}>
+                <Icon.User /> {a.email}
+              </span>
+              <span style={{ fontSize: '11.5px', color: t.inkFaint }}>{a.acceso}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* CARD DE CONTROL GLOBAL - DOBLE BOTÓN */}
@@ -596,8 +835,17 @@ const Admin = ({ session }) => {
                   <button className="admin-icon-btn" style={{ ...styles.btnAction(t.positive), marginRight: '6px' }} onClick={() => handleAdjustCredits(u.id, u.credits, 'SUMAR')} title="Sumar créditos">
                     <Icon.Plus />
                   </button>
-                  <button className="admin-icon-btn" style={styles.btnAction(t.brand)} onClick={() => handleAdjustCredits(u.id, u.credits, 'RESTAR')} title="Restar créditos">
+                  <button className="admin-icon-btn" style={{ ...styles.btnAction(t.brand), marginRight: '6px' }} onClick={() => handleAdjustCredits(u.id, u.credits, 'RESTAR')} title="Restar créditos">
                     <Icon.Minus />
+                  </button>
+                  <button
+                    className="admin-icon-btn"
+                    style={styles.btnAction(darkMode ? '#334155' : t.ink)}
+                    onClick={() => handleExportarExcel(u)}
+                    disabled={exportandoId === u.id}
+                    title="Descargar información y movimientos en Excel"
+                  >
+                    {exportandoId === u.id ? <Icon.Refresh className="admin-spin" /> : <Icon.Download />}
                   </button>
                 </td>
               </tr>
@@ -645,6 +893,72 @@ const Admin = ({ session }) => {
         )}
       </div>
 
+      {/* CLIENTES ESPECIALES: precios fijos en DPF/EGR/ADBLUE */}
+      <div style={{
+        ...styles.contentCard,
+        border: `1.5px solid ${t.brand}`,
+        boxShadow: darkMode
+          ? `0 0 0 1px ${t.brand}33, 0 0 24px ${t.brand}30, 0 4px 20px rgba(0,0,0,0.3)`
+          : `0 0 0 1px ${t.brand}22, 0 0 20px ${t.brand}25, 0 1px 2px rgba(24,24,27,0.04)`
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+          <h3 style={{ margin: 0, fontSize: '14.5px', color: t.ink, fontWeight: 700 }}>Clientes especiales</h3>
+          <span style={{
+            fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px',
+            backgroundColor: t.brandSoft, color: t.brand
+          }}>
+            {users.filter(u => u.cliente_especial).length} {users.filter(u => u.cliente_especial).length === 1 ? 'cliente especial' : 'clientes especiales'}
+          </span>
+        </div>
+        <p style={{ margin: '0 0 16px', fontSize: '12px', color: t.inkFaint }}>
+          Los clientes marcados acceden a precio fijo en DPF OFF, EGR OFF, DPF+EGR OFF y DPF+EGR+ADBLUE OFF, tanto en el Simulador como al subir un archivo.
+        </p>
+
+        <div style={styles.searchBar}>
+          <Icon.Search style={{ color: t.inkFaint }} />
+          <input
+            className="admin-search-input"
+            placeholder="Buscar cliente por email o nombre..."
+            value={searchEspeciales}
+            onChange={(e) => setSearchEspeciales(e.target.value)}
+            style={{ border: 'none', outline: 'none', background: 'transparent', width: '100%', fontSize: '13px', color: t.ink }}
+          />
+        </div>
+
+        <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
+          {users
+            .filter(u => {
+              const term = searchEspeciales.toLowerCase();
+              return u.email?.toLowerCase().includes(term) || u.full_name?.toLowerCase().includes(term);
+            })
+            .map(u => (
+              <label
+                key={u.id}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 8px',
+                  borderBottom: `1px solid ${t.line}`, cursor: 'pointer', fontSize: '13px'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!u.cliente_especial}
+                  disabled={actualizandoEspecialId === u.id}
+                  onChange={() => handleToggleClienteEspecial(u.id, u.cliente_especial)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: t.brand }}
+                />
+                <span style={{ color: t.ink, fontWeight: 600 }}>{u.full_name || 'Sin nombre'}</span>
+                <span style={{ color: t.inkFaint }}>{u.email}</span>
+              </label>
+            ))}
+          {users.length === 0 && !loading && (
+            <div style={styles.emptyState}>
+              <Icon.Inbox />
+              <span>No hay clientes cargados todavía.</span>
+            </div>
+          )}
+        </div>
+      </div>
+
       {selectedUser && (
         <div style={styles.modalOverlay} onClick={() => setSelectedUser(null)}>
           <div className="admin-modal" style={styles.modalBox} onClick={(e) => e.stopPropagation()}>
@@ -666,6 +980,38 @@ const Admin = ({ session }) => {
               <div>
                 <p style={{ fontSize: '10px', color: t.inkFaint, margin: 0, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Créditos disponibles</p>
                 <p style={{ fontSize: '14px', margin: '6px 0 15px', fontWeight: 700, color: t.brand, borderBottom: `1px solid ${t.line}`, paddingBottom: '8px' }}>{selectedUser.credits?.toLocaleString('es-CL')}</p>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '10px' }}>
+              <p style={{ fontSize: '10px', color: t.inkFaint, margin: 0, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Descuento en costo de servicios</p>
+              <p style={{ fontSize: '11px', color: t.inkFaint, margin: '4px 0 8px' }}>Aplica al costo en créditos de STAGE 1, STAGE 2, etc. al subir un archivo.</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={descuentoEdit}
+                  onChange={(e) => setDescuentoEdit(e.target.value)}
+                  style={{
+                    width: '80px', padding: '9px 10px', borderRadius: '8px',
+                    border: `1px solid ${t.line}`, backgroundColor: darkMode ? '#0f172a' : '#fff',
+                    color: t.ink, fontSize: '13px', fontWeight: 700, outline: 'none'
+                  }}
+                />
+                <span style={{ fontSize: '13px', color: t.inkSoft, fontWeight: 700 }}>%</span>
+                <button
+                  onClick={handleGuardarDescuento}
+                  disabled={guardandoDescuento}
+                  style={{
+                    padding: '9px 16px', borderRadius: '8px', border: 'none',
+                    backgroundColor: t.brand, color: '#fff', fontSize: '11.5px', fontWeight: 700,
+                    cursor: guardandoDescuento ? 'default' : 'pointer', opacity: guardandoDescuento ? 0.6 : 1,
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  {guardandoDescuento ? 'Guardando...' : 'Guardar'}
+                </button>
               </div>
             </div>
 
@@ -712,7 +1058,7 @@ const Admin = ({ session }) => {
             <button
               onClick={() => setSelectedUser(null)}
               style={{
-                width: '100%', padding: '13px', marginTop: '22px', backgroundColor: t.ink, color: darkMode ? '#ffffff' : '#fff',
+                width: '100%', padding: '13px', marginTop: '22px', backgroundColor: darkMode ? '#334155' : t.ink, color: '#ffffff',
                 border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '12.5px', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'opacity 0.15s ease'
               }}

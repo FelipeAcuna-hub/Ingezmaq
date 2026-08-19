@@ -62,9 +62,15 @@ function App() {
     'focaldevs@gmail.com'
   ];
 
-  const isAdmin = 
-    session?.user?.app_metadata?.role === 'admin' || 
+  // Acceso a /clientes: los administradores completos, más los que solo
+  // gestionan clientes (aprobar/rechazar/eliminar) sin ser admin general.
+  const CLIENTES_ACCESS_EMAILS = [...ADMIN_EMAILS, 'alientechchile@gmail.com'];
+
+  const isAdmin =
+    session?.user?.app_metadata?.role === 'admin' ||
     ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
+
+  const canAccessClientes = CLIENTES_ACCESS_EMAILS.includes(session?.user?.email?.toLowerCase());
 
   return (
     <Router>
@@ -100,7 +106,7 @@ function App() {
           <Route path="/archivos" element={<Archivos session={session} />} />
           <Route path="/upload" element={<UploadFile session={session} />} />
           <Route path="/simulador" element={<Simulador session={session} />} />
-          <Route path="/clientes" element={<Clientes session={session} />} />
+          <Route path="/clientes" element={canAccessClientes ? <Clientes session={session} /> : <Navigate to="/" />} />
           
           {/* Ruta Exclusiva para Administradores */}
           <Route 

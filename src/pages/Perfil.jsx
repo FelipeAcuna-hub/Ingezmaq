@@ -20,6 +20,7 @@ const Perfil = ({ session }) => {
     rut: '',
     actividad: '',
     country: 'Chile',
+    fecha_nacimiento: '',
     credits: 0
   });
 
@@ -48,6 +49,7 @@ const Perfil = ({ session }) => {
             rut: data.rut || '',
             actividad: data.actividad || '',
             country: data.country || 'Chile',
+            fecha_nacimiento: data.fecha_nacimiento || '',
             credits: data.credits || 0
           });
         }
@@ -99,6 +101,7 @@ const Perfil = ({ session }) => {
       const { error } = await supabase.from('profiles').upsert({
         id: userId,
         ...profile,
+        fecha_nacimiento: profile.fecha_nacimiento || null,
         updated_at: new Date().toISOString(),
       });
       if (error) throw error;
@@ -159,6 +162,24 @@ const Perfil = ({ session }) => {
       outline: 'none',
       transition: 'all 0.2s ease'
     },
+    inputWarning: {
+      width: '100%',
+      padding: '12px',
+      border: '1px solid #f59e0b',
+      backgroundColor: darkMode ? 'rgba(245, 158, 11, 0.1)' : '#fffbeb',
+      color: darkMode ? '#ffffff' : '#000000',
+      borderRadius: '4px',
+      fontSize: '14px',
+      boxSizing: 'border-box',
+      outline: 'none',
+      transition: 'all 0.2s ease'
+    },
+    warningText: {
+      margin: '6px 0 0',
+      fontSize: '11px',
+      fontWeight: 600,
+      color: '#f59e0b'
+    },
     submitBtn: {
       backgroundColor: darkMode ? '#2563eb' : '#000000', // Botón principal azul o negro
       color: 'white', 
@@ -197,7 +218,7 @@ const Perfil = ({ session }) => {
               onChange={(e) => setProfile({ ...profile, apellido: e.target.value })}
             />
           </div>
-          <div style={{ gridColumn: 'span 2', width: '25%' }}>
+          <div>
             <label style={styles.label}>TELÉFONO</label>
             <input
               style={styles.input}
@@ -206,6 +227,18 @@ const Perfil = ({ session }) => {
               value={profile.phone}
               onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
             />
+          </div>
+          <div>
+            <label style={styles.label}>FECHA DE CUMPLEAÑOS</label>
+            <input
+              style={profile.fecha_nacimiento ? styles.input : styles.inputWarning}
+              type="date"
+              value={profile.fecha_nacimiento}
+              onChange={(e) => setProfile({ ...profile, fecha_nacimiento: e.target.value })}
+            />
+            {!profile.fecha_nacimiento && (
+              <p style={styles.warningText}>⚠️ Falta completar este campo.</p>
+            )}
           </div>
         </div>
 

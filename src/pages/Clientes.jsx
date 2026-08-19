@@ -2,11 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom'; // 1. Importamos el hook para el modo oscuro
 import { supabase } from '../supabaseClient';
 
+const ADMIN_EMAILS = [
+  'sebastianzunigavaldivia@gmail.com',
+  'oliver.zuniga@gmail.com',
+  'focaldevs@gmail.com'
+];
+const CLIENTES_ACCESS_EMAILS = [...ADMIN_EMAILS, 'alientechchile@gmail.com'];
+
 const Clientes = ({ session }) => {
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState('pendientes'); // 'pendientes' o 'activos'
-  
+
   // --- ESTADOS PARA BÚSQUEDA Y PAGINACIÓN ---
   const [searchTerm, setSearchTerm] = useState('');
   const [paginaActual, setPaginaActual] = useState(1);
@@ -14,6 +21,8 @@ const Clientes = ({ session }) => {
 
   // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
   const { darkMode } = useOutletContext(); // 2. Extraemos darkMode
+
+  const canAccessClientes = CLIENTES_ACCESS_EMAILS.includes(session?.user?.email?.toLowerCase());
 
   const fetchClientes = async () => {
     try {
@@ -180,6 +189,15 @@ const Clientes = ({ session }) => {
       transition: 'all 0.2s ease'
     })
   };
+
+  if (!canAccessClientes) {
+    return (
+      <div style={{ padding: '60px 20px', textAlign: 'center', minHeight: '100vh', backgroundColor: darkMode ? '#0f172a' : '#f3f4f6', fontFamily: "'Inter', sans-serif" }}>
+        <h2 style={{ color: darkMode ? '#f8fafc' : '#111' }}>Acceso denegado</h2>
+        <p style={{ color: darkMode ? '#94a3b8' : '#666' }}>No tienes permisos para ver esta página.</p>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>

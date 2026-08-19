@@ -164,6 +164,7 @@ const Layout = ({ session }) => {
   const [status, setStatus] = useState({ is_online: true, mensaje: 'CARGANDO ESTADO...' });
   const [ticketCount, setTicketCount] = useState(0);
   const [fileCount, setFileCount] = useState(0); // 🔴 ESTADO PARA NOTIFICACIÓN DE ARCHIVOS
+  const [perfilIncompleto, setPerfilIncompleto] = useState(false);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
@@ -186,7 +187,10 @@ const Layout = ({ session }) => {
     'oliver.zuniga@gmail.com',
     'focaldevs@gmail.com'
   ];
+  // Acceso a CLIENTES: admins completos, más quienes solo gestionan clientes.
+  const CLIENTES_ACCESS_EMAILS = [...ADMIN_EMAILS, 'alientechchile@gmail.com'];
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
+  const canAccessClientes = CLIENTES_ACCESS_EMAILS.includes(session?.user?.email?.toLowerCase());
 
   // 📁 NOTIFICACIÓN DE ARCHIVOS ("En Gestión" o "Completado")
   const fetchActiveFilesCount = useCallback(async () => {
@@ -301,13 +305,14 @@ const Layout = ({ session }) => {
       if (session?.user) {
         const { data, error = null } = await supabase
           .from('profiles')
-          .select('credits, full_name')
+          .select('credits, full_name, fecha_nacimiento')
           .eq('id', session.user.id)
           .single();
 
         if (data && !error) {
           setDbCredits(data.credits || 0);
           setDisplayName(data.full_name || session.user.email.split('@')[0]);
+          setPerfilIncompleto(!data.fecha_nacimiento);
         }
       }
     };
@@ -399,7 +404,7 @@ const Layout = ({ session }) => {
       flexDirection: 'column',
       overflowY: 'auto',
       width: '100%',
-      backgroundColor: darkMode ? '#000000' : '#ffffff'
+      backgroundColor: darkMode ? '#0f172a' : '#f6f6f9'
     },
     header: {
       background: 'linear-gradient(90deg, #ea580c 0%, #dc4f0d 100%)',
@@ -561,7 +566,7 @@ const Layout = ({ session }) => {
             inactiveStyle={styles.navItem}
           />
 
-          {isAdmin && (
+          {canAccessClientes && (
             <SidebarLink
               to="/clientes"
               currentPath={location.pathname}
@@ -590,6 +595,32 @@ const Layout = ({ session }) => {
               activeStyle={styles.navItemActive}
               inactiveStyle={styles.navItem}
             />
+          )}
+
+          {perfilIncompleto && (
+            <Link to="/perfil" style={{ textDecoration: 'none', display: 'block', margin: '14px 10px 4px' }} onClick={() => setIsMenuOpen(false)}>
+              <li style={{
+                listStyle: 'none',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '8px',
+                padding: '11px 12px',
+                borderRadius: '9px',
+                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                color: '#fbbf24',
+                fontSize: '11px',
+                lineHeight: 1.4,
+                fontWeight: 600
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: '1px' }}>
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <span>Debes terminar de completar la información de tu perfil.</span>
+              </li>
+            </Link>
           )}
         </ul>
 

@@ -1,49 +1,51 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation, useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { PRECIOS_ESPECIALES, precioServicio } from '../preciosEspeciales';
 
-// --- 1. DEFINICIÓN DE SERVICIOS DINÁMICOS ---
-const SERVICIOS_CONFIG = {
-  'REPRO GASOLINA': [
-    { id: 'b_s1', name: 'STAGE 1 + VMAX', price: 13 },
-    { id: 'b_s1pb', name: 'STAGE 1 + POPS AND BANGS', price: 18 },
-    { id: 'b_s2', name: 'STAGE 2 (REQUIERE MODS)', price: 16 },
-    { id: 'b_s2pb', name: 'STAGE 2 + POPS AND BANGS', price: 22 },
-    { id: 'b_pb', name: 'POPS AND BANGS (SOLO)', price: 6 }
+const SERVICIOS_CONFIG_BASE = {
+  'REPRO POTENCIA GASOLINA': [
+    { id: 'b_s1', name: 'STAGE 1 + VMAX', price: 13 }, //revisado
+    { id: 'b_s1pb', name: 'STAGE 1 + POPS AND BANGS', price: 14 }, //revisado
+    { id: 'b_s2', name: 'STAGE 2 (REQUIERE MODS)', price: 18 }, //revisado
+    { id: 'b_s2pb', name: 'STAGE 2 + POPS AND BANGS', price: 22 }, //no esta en la lista 
+    { id: 'b_pb', name: 'POPS AND BANGS (SOLO)', price: 6 } //revisado
   ],
-  'REPRO DIÉSEL': [
-    { id: 'd_s1', name: 'STAGE 1', price: 14 },
-    { id: 'd_s1egr', name: 'STAGE 1 + EGR OFF', price: 13 },
-    { id: 'd_s1dpf', name: 'STAGE 1 + DPF OFF + EGR OFF', price: 14 },
-    { id: 'd_s1full', name: 'STAGE 1 + DPF + EGR OFF + ADBLUE OFF', price: 15 },
-    { id: 'd_s2', name: 'STAGE 2 (POTENCIA + MODS)', price: 16 }
+  'REPRO POTENCIA DIESEL': [
+    { id: 'd_s1', name: 'STAGE 1', price: 12 },//revisado
+    { id: 'd_s1egr', name: 'STAGE 1 + EGR OFF', price: 13 },//revisado
+    { id: 'd_s1dpf', name: 'STAGE 1 + DPF OFF + EGR OFF', price: 14 },//revisado
+    { id: 'd_s1full', name: 'STAGE 1 + DPF + EGR OFF + ADBLUE OFF', price: 15 },//revisado
+    { id: 'd_s2', name: 'STAGE 2 (POTENCIA + MODS)', price: 16 } //no esta en la lista 
   ],
-  'ANULACIONES EURO': [
-    { id: 'dpf_only', name: 'DPF OFF', price: 7 },
-    { id: 'dpf_egr', name: 'DPF OFF + EGR OFF', price: 9 },
-    { id: 'adblue_full', name: 'ADBLUE + DPF & EGR OFF', price: 11 },
-    { id: 'egr_only', name: 'EGR OFF', price: 7 },
-    { id: 'dpf_adblue', name: 'DPF + ADBLUE', price: 9 },
-    { id: 'adblue_only', name: 'ADBLUE OFF', price: 7 },
-    { id: 'restauracion_orig', name: 'RESTAURACION ORI', price: 6 }
+  'ANULACIONES - ELIMINACIONES EURO DIESEL': [
+    { id: 'dpf_only', name: 'DPF OFF', price: 7 }, //revisado
+    { id: 'dpf_egr', name: 'DPF OFF + EGR OFF', price: 9 }, //revisado
+    { id: 'adblue_full', name: 'ADBLUE + DPF & EGR OFF', price: 11 }, //revisado
+    { id: 'egr_only', name: 'EGR OFF', price: 7 }, //revisado
+    { id: 'dpf_adblue', name: 'DPF + ADBLUE', price: 9 }, //revisado
+    { id: 'adblue_only', name: 'ADBLUE OFF', price: 7 }, //revisado
+    { id: 'restauracion_orig', name: 'RESTAURACION ORI', price: 6 } 
   ],
-  'ANULACIONES EURO (CAMIONES)': [
-    { id: 'truck_dpf_egr', name: 'DPF OFF + EGR OFF', price: 12 },
-    { id: 'truck_adblue_full', name: 'ADBLUE + DPF & EGR OFF', price: 16 },
-    { id: 'truck_egr_only', name: 'EGR OFF', price: 8 },
-    { id: 'truck_adbue_only', name: 'ADBLUE OFF', price: 20 },
-    { id: 'truck_dpf_only', name: 'DPF OFF', price: 12 },
-    { id: 'truck_cummins_emissions', name: 'CUMMINS EMISSIONS', price: 35 }
+  'ANULACIONES - ELIMINACIONES HD / CAMIONES / AGRICOLA': [
+    { id: 'truck_dpf_only', name: 'DPF OFF HD', price: 12 },
+    { id: 'truck_egr_only', name: 'EGR OFF', price: 12 },
+    { id: 'truck_adblue_only', name: 'ADBLUE OFF', price: 12 },
+    { id: 'truck_dpf_egr', name: 'DPF + EGR OFF', price: 15 },
+    { id: 'truck_dpf_adblue', name: 'DPF + ADBLUE OFF', price: 15 },
+    { id: 'truck_egr_adblue', name: 'EGR + ADBLUE OFF', price: 15 },
+    { id: 'truck_dpf_egr_adblue', name: 'DPF + EGR + ADBLUE OFF', price: 18 }
   ],
   'DESACTIVACIONES': [
-    { id: 'dtc', name: 'DTC OFF', price: 3 },
-    { id: 'lambda', name: 'LAMBDA OFF', price: 6 },
-    { id: 'immo', name: 'IMMO OFF', price: 6 },
-    { id: 'vmax', name: 'VMAX OFF (LIMITADOR DE VELOCIDAD)', price: 8 },
-    { id: 'immo_toyota', name: 'IMMO OFF SPECIAL (TOYOTA)', price: 8 },
-    { id: 'decat_off', name: 'DECAT OFF', price: 6 },
-    { id: 'tva_off', name: 'TVA OFF', price: 6 },
-    { id: 'flaps_swirls', name: 'FLAPS/SWIRLS', price: 6 }
+    { id: 'dtc', name: 'DTC OFF', price: 4 }, //revisado
+    { id: 'lambda', name: 'LAMBDA OFF', price: 6 }, // Revisar si eliminar
+    { id: 'mafof', name: 'MAF OFF', price: 5 }, //revisado
+    { id: 'immo', name: 'IMMO OFF', price: 6 }, //preguntar
+    { id: 'vmax', name: 'VMAX OFF (LIMITADOR DE VELOCIDAD)', price: 5 }, //revisado
+    { id: 'immo_toyota', name: 'IMMO OFF SPECIAL (TOYOTA)', price: 8 }, //preguntar
+    { id: 'decat_off', name: 'DECAT-CAT OFF', price: 5 }, //revisado
+    { id: 'tva_off', name: 'TVA OFF', price: 6 }, //preguntar
+    { id: 'flaps_swirls', name: 'FLAPS/SWIRLS', price: 7 } //revisado  
   ]
 };
 
@@ -151,10 +153,13 @@ const UploadFile = ({ session }) => {
   const [fileId, setFileId] = useState(null);
   const [fileMapa, setFileMapa] = useState(null);
   const [filePass, setFilePass] = useState(null);
+  const [filesExtra, setFilesExtra] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [categoriaSel, setCategoriaSel] = useState(null);
   const [servicioSel, setServicioSel] = useState(null);
+  const [descuentoPct, setDescuentoPct] = useState(0);
+  const [esClienteEspecial, setEsClienteEspecial] = useState(false);
 
   const [formData, setFormData] = useState({
     patente: '', marca: '', modelo: '', anio: '',
@@ -162,22 +167,50 @@ const UploadFile = ({ session }) => {
     tipo_modulo: '', comentarios: ''
   });
 
+  // Precios reales que se cobran: los especiales fijos no dependen de lo que
+  // venga por navegación desde el Simulador, siempre se recalculan acá.
+  const SERVICIOS_CONFIG = Object.fromEntries(
+    Object.entries(SERVICIOS_CONFIG_BASE).map(([categoria, servicios]) => [
+      categoria,
+      servicios.map(s => ({ ...s, price: precioServicio(s.id, s.price, esClienteEspecial) }))
+    ])
+  );
+
   useEffect(() => {
     if (location.state?.servicio) {
-      const { name, price, id } = location.state.servicio;
+      const { id } = location.state.servicio;
       const categoriaEncontrada = Object.keys(SERVICIOS_CONFIG).find(cat =>
         SERVICIOS_CONFIG[cat].some(s => s.id === id)
       );
       if (categoriaEncontrada) {
+        const servicio = SERVICIOS_CONFIG[categoriaEncontrada].find(s => s.id === id);
         setCategoriaSel(categoriaEncontrada);
-        setServicioSel({ id, name, price });
-        if (categoriaEncontrada === 'REPRO DIÉSEL') setFormData(prev => ({ ...prev, combustible: 'Diesel' }));
-        if (categoriaEncontrada === 'REPRO GASOLINA') setFormData(prev => ({ ...prev, combustible: 'Gasolina' }));
+        setServicioSel(servicio);
+        if (categoriaEncontrada === 'REPRO POTENCIA DIESEL') setFormData(prev => ({ ...prev, combustible: 'Diesel' }));
+        if (categoriaEncontrada === 'REPRO POTENCIA GASOLINA') setFormData(prev => ({ ...prev, combustible: 'Gasolina' }));
       }
     }
-  }, [location]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, esClienteEspecial]);
 
-  const totalCreditos = servicioSel ? servicioSel.price : 0;
+  useEffect(() => {
+    const fetchDescuentos = async () => {
+      if (!session?.user?.id) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('descuento_porcentaje, cliente_especial')
+        .eq('id', session.user.id)
+        .single();
+      setDescuentoPct(data?.descuento_porcentaje || 0);
+      setEsClienteEspecial(!!data?.cliente_especial);
+    };
+    fetchDescuentos();
+  }, [session]);
+
+  const esServicioEspecial = servicioSel && esClienteEspecial && PRECIOS_ESPECIALES[servicioSel.id] != null;
+  const totalCreditos = servicioSel
+    ? (esServicioEspecial ? servicioSel.price : Math.round(servicioSel.price * (1 - descuentoPct / 100)))
+    : 0;
 
   const handlePatenteChange = (e) => {
     const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -186,7 +219,7 @@ const UploadFile = ({ session }) => {
     }
   };
 
-  const isFormValid = formData.patente.length >= 4 && fileMapa && servicioSel;
+  const isFormValid = formData.patente.length >= 4 && formData.marca.trim() && fileMapa && servicioSel;
 
   const uploadSingleFile = async (file, prefix, folderName) => {
     if (!file) return null;
@@ -208,7 +241,7 @@ const UploadFile = ({ session }) => {
 
   const handleSubmit = async () => {
     if (!isFormValid) {
-      alert("Faltan campos obligatorios (Patente, ID o Mapa)");
+      alert("Faltan campos obligatorios (Patente, Marca, Mapa o Servicio)");
       return;
     }
 
@@ -232,6 +265,12 @@ const UploadFile = ({ session }) => {
       const urlId = await uploadSingleFile(fileId, 'ID', folderName);
       const urlMapa = await uploadSingleFile(fileMapa, 'MAPA', folderName);
       const urlPass = await uploadSingleFile(filePass, 'PASS', folderName);
+
+      const archivosAdicionales = [];
+      for (let i = 0; i < filesExtra.length; i++) {
+        const url = await uploadSingleFile(filesExtra[i], `EXTRA${i + 1}`, folderName);
+        if (url) archivosAdicionales.push({ nombre: filesExtra[i].name, url });
+      }
 
       const { error: updateCreditsError } = await supabase
         .from('profiles')
@@ -261,7 +300,8 @@ const UploadFile = ({ session }) => {
         detalles_tecnicos: {
           ...formData,
           servicios_solicitados: servicioSel.name,
-          costo_creditos: totalCreditos
+          costo_creditos: totalCreditos,
+          archivos_adicionales: archivosAdicionales
         }
       });
 
@@ -353,7 +393,9 @@ const UploadFile = ({ session }) => {
     label: { display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', color: darkMode ? '#94a3b8' : '#333', textTransform: 'uppercase' },
     input: {
       width: '100%',
+      height: '42px',
       padding: '10px',
+      fontSize: '13px',
       border: darkMode ? '1px solid #475569' : '1px solid #ccc',
       borderRadius: '4px',
       boxSizing: 'border-box',
@@ -412,11 +454,19 @@ const UploadFile = ({ session }) => {
             />
             <small style={{ fontSize: '9px', color: darkMode ? '#64748b' : '#999' }}>Máx. 6 caracteres</small>
           </div>
-          <div><label style={styles.label}>Marca</label><input style={styles.input} placeholder="AUDI" value={formData.marca} onChange={e => setFormData({ ...formData, marca: e.target.value.toUpperCase() })} /></div>
-          <div><label style={styles.label}>Modelo</label><input style={styles.input} placeholder="Q7" value={formData.modelo} onChange={e => setFormData({ ...formData, modelo: e.target.value.toUpperCase() })} /></div>
           <div>
+            <label style={styles.label}>Marca (Obligatorio)</label>
+            <input
+              style={{ ...styles.input, borderColor: formData.marca ? (darkMode ? '#475569' : '#ccc') : '#2563eb' }}
+              placeholder="AUDI"
+              value={formData.marca}
+              onChange={e => setFormData({ ...formData, marca: e.target.value.toUpperCase() })}
+            />
+          </div>
+          <div><label style={styles.label}>Modelo</label><input style={styles.input} placeholder="Q7" value={formData.modelo} onChange={e => setFormData({ ...formData, modelo: e.target.value.toUpperCase() })} /></div>
+          <div style={{ minWidth: 0 }}>
             <label style={styles.label}>Año</label>
-            <select style={styles.input} value={formData.anio} onChange={e => setFormData({ ...formData, anio: e.target.value })}>
+            <select style={{ ...styles.input, width: '100%' }} value={formData.anio} onChange={e => setFormData({ ...formData, anio: e.target.value })}>
               <option value="">Seleccionar año</option>
               {years.map(year => (<option key={year} value={year}>{year}</option>))}
             </select>
@@ -424,12 +474,12 @@ const UploadFile = ({ session }) => {
         </div>
 
         <div style={styles.row}>
-          <div><label style={styles.label}>Motor</label><input style={styles.input} placeholder="EA888" value={formData.motor} onChange={e => setFormData({ ...formData, motor: e.target.value.toUpperCase() })} /></div>
+          <div><label style={styles.label}>Motor</label><input style={styles.input} placeholder="Ej: 2.000, 1.600" value={formData.motor} onChange={e => setFormData({ ...formData, motor: e.target.value.toUpperCase() })} /></div>
           <div><label style={styles.label}>HP</label><input style={styles.input} placeholder="200" value={formData.hp} onChange={e => setFormData({ ...formData, hp: e.target.value.toUpperCase() })} /></div>
-          <div><label style={styles.label}>ECU</label><input style={styles.input} placeholder="Bosch/Delco/etc.." value={formData.ecu} onChange={e => setFormData({ ...formData, ecu: e.target.value.toUpperCase() })} /></div>
-          <div>
+          <div><label style={styles.label}>Marca de ECU</label><input style={styles.input} placeholder="Ej: EDC17C60 - SID321 - DCU17CP42" value={formData.ecu} onChange={e => setFormData({ ...formData, ecu: e.target.value.toUpperCase() })} /></div>
+          <div style={{ minWidth: 0 }}>
             <label style={styles.label}>Combustible</label>
-            <select style={styles.input} value={formData.combustible} onChange={e => setFormData({ ...formData, combustible: e.target.value })}>
+            <select style={{ ...styles.input, width: '100%' }} value={formData.combustible} onChange={e => setFormData({ ...formData, combustible: e.target.value })}>
               <option value="">Seleccionar</option>
               <option value="Gasolina">Gasolina</option>
               <option value="Diesel">Diesel</option>
@@ -597,10 +647,83 @@ const UploadFile = ({ session }) => {
           </div>
         </div>
 
+        <h2 style={{ fontSize: '20px', margin: '40px 0 10px', borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', paddingBottom: '10px' }}>
+          ANEXOS ADICIONALES
+        </h2>
+        <p style={{ fontSize: '12px', color: darkMode ? '#94a3b8' : '#666', marginTop: 0, marginBottom: '15px' }}>
+          Opcional. Sube fotos o PDFs extra si los necesitas: PDF INFORME, FOTO TABLERO, PATENTE, ANEXOS, etc.
+        </p>
+
+        <div
+          style={{ ...styles.fileBox(filesExtra.length > 0, false), marginBottom: '15px' }}
+          onClick={() => document.getElementById('filesExtra').click()}
+        >
+          <input
+            type="file"
+            id="filesExtra"
+            multiple
+            accept="image/*,.pdf"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              setFilesExtra(prev => [...prev, ...Array.from(e.target.files)]);
+              e.target.value = '';
+            }}
+          />
+          <div style={{ fontSize: '24px', marginBottom: '5px' }}>📎</div>
+          <div style={{ fontSize: '12px', fontWeight: 'bold', color: filesExtra.length > 0 ? '#22c55e' : (darkMode ? '#94a3b8' : '#333') }}>
+            {filesExtra.length > 0 ? `${filesExtra.length} ARCHIVO(S) LISTO(S)` : 'SUBIR ANEXOS (OPCIONAL)'}
+          </div>
+          <div style={{ fontSize: '10px', color: darkMode ? '#64748b' : '#888' }}>
+            Puedes seleccionar más de uno
+          </div>
+        </div>
+
+        {filesExtra.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '25px' }}>
+            {filesExtra.map((f, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 12px', borderRadius: '4px',
+                backgroundColor: darkMode ? '#1e293b' : '#f9f9f9',
+                border: darkMode ? '1px solid #334155' : '1px solid #eee'
+              }}>
+                <span style={{ fontSize: '11px', color: darkMode ? '#e2e8f0' : '#333', wordBreak: 'break-all' }}>{f.name}</span>
+                <button
+                  onClick={() => setFilesExtra(prev => prev.filter((_, idx) => idx !== i))}
+                  style={{
+                    backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #ef4444',
+                    borderRadius: '3px', padding: '2px 8px', fontSize: '9px', fontWeight: 'bold', cursor: 'pointer', flexShrink: 0, marginLeft: '10px'
+                  }}
+                >
+                  ✕ Quitar
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div style={styles.resumenBox}>
           <div style={{ textAlign: 'left' }}>
             <p style={{ margin: 0, fontSize: '12px', color: '#aaa' }}>Créditos a descontar:</p>
-            <h1 style={{ margin: 0, fontSize: '48px', color: '#fff' }}>{totalCreditos}</h1>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+              <h1 style={{ margin: 0, fontSize: '48px', color: '#fff' }}>{totalCreditos}</h1>
+              {esServicioEspecial && (
+                <>
+                  {Object.values(SERVICIOS_CONFIG_BASE).flat().find(s => s.id === servicioSel.id)?.price !== totalCreditos && (
+                    <span style={{ fontSize: '18px', color: '#6b7280', textDecoration: 'line-through' }}>
+                      {Object.values(SERVICIOS_CONFIG_BASE).flat().find(s => s.id === servicioSel.id)?.price}
+                    </span>
+                  )}
+                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#16a34a', backgroundColor: 'rgba(22,163,74,0.15)', padding: '3px 8px', borderRadius: '999px' }}>PRECIO ESPECIAL</span>
+                </>
+              )}
+              {!esServicioEspecial && descuentoPct > 0 && servicioSel && (
+                <>
+                  <span style={{ fontSize: '18px', color: '#6b7280', textDecoration: 'line-through' }}>{servicioSel.price}</span>
+                  <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#16a34a', backgroundColor: 'rgba(22,163,74,0.15)', padding: '3px 8px', borderRadius: '999px' }}>-{descuentoPct}%</span>
+                </>
+              )}
+            </div>
           </div>
           <button
             onClick={handleSubmit}
@@ -614,9 +737,10 @@ const UploadFile = ({ session }) => {
           >
             {loading ? 'PROCESANDO...' :
               !formData.patente ? 'FALTA PATENTE' :
-                !fileMapa ? 'FALTA ARCHIVO MAPA' :
-                  !servicioSel ? 'SELECCIONA SERVICIO' :
-                    'CARGAR ARCHIVOS'}
+                !formData.marca.trim() ? 'FALTA MARCA' :
+                  !fileMapa ? 'FALTA ARCHIVO MAPA' :
+                    !servicioSel ? 'SELECCIONA SERVICIO' :
+                      'CARGAR ARCHIVOS'}
           </button>
         </div>
       </div>

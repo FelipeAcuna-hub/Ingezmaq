@@ -36,7 +36,8 @@ const Archivos = ({ session }) => {
           *,
           profiles:user_id (
             company,
-            email
+            email,
+            cliente_especial
           )
         `);
 
@@ -495,7 +496,15 @@ const Archivos = ({ session }) => {
                   {isAdmin && <td style={{ ...styles.td, fontWeight: 'bold', color: '#2563eb' }}>{archivo.profiles?.company || 'PARTICULAR'}</td>}
                   {isAdmin && (
                     <td style={{ ...styles.td, fontSize: '11px', color: darkMode ? '#cbd5e1' : '#555' }}>
-                      {archivo.profiles?.email || '---'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        {archivo.profiles?.cliente_especial && (
+                          <span
+                            title="Cliente especial"
+                            style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#f59e0b', flexShrink: 0, display: 'inline-block' }}
+                          />
+                        )}
+                        {archivo.profiles?.email || '---'}
+                      </span>
                     </td>
                   )}
                   <td style={styles.td}>{archivo.patente}</td>
@@ -675,6 +684,23 @@ const Archivos = ({ session }) => {
                 <div style={{ fontWeight: 'bold', fontSize: '10px', color: '#2563eb' }}>COMMENTS:</div>
                 <p style={{ margin: 0, fontSize: '12px', fontStyle: 'italic', color: darkMode ? '#cbd5e1' : '#444' }}>{archivoDetalle.detalles_tecnicos?.comentarios || 'No comments provided.'}</p>
               </div>
+
+              {archivoDetalle.detalles_tecnicos?.archivos_adicionales?.length > 0 && (
+                <div style={{ marginTop: '20px' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '10px', color: '#2563eb', marginBottom: '8px' }}>ARCHIVOS ADICIONALES:</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {archivoDetalle.detalles_tecnicos.archivos_adicionales.map((adj, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleForceDownload(adj.url)}
+                        style={{ ...styles.btnDownload, background: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                      >
+                        ⬇️ {adj.nombre || `Adjunto ${i + 1}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             <div style={{ padding: '15px', textAlign: 'right', borderTop: darkMode ? '1px solid #334155' : 'none' }}>
               <button onClick={() => setArchivoDetalle(null)} style={{ backgroundColor: '#000', color: 'white', border: 'none', padding: '8px 25px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', borderRadius: '2px' }}>CLOSE</button>

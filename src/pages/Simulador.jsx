@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
+import { precioServicio } from '../preciosEspeciales';
 
 // --- SUB-COMPONENTE INTERACTIVO PARA LAS CATEGORÍAS (ANIMACIÓN HOVER) ---
 const SimCategoryItem = ({ cat, isSelected, onClick, darkMode, baseCardStyle, selectedCardStyle }) => {
@@ -74,42 +76,58 @@ const SimServiceItem = ({ s, isSelected, onClick, darkMode, baseCardStyle, selec
   );
 };
 
-const Simulador = () => {
+const Simulador = ({ session }) => {
   const navigate = useNavigate();
   const { darkMode } = useOutletContext();
 
   const [categoriaSel, setCategoriaSel] = useState(null);
   const [servicioSel, setServicioSel] = useState(null);
+  const [esClienteEspecial, setEsClienteEspecial] = useState(false);
 
-  const SERVICIOS_CONFIG = {
-    'REPRO GASOLINA': [
+  useEffect(() => {
+    const fetchClienteEspecial = async () => {
+      if (!session?.user?.id) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('cliente_especial')
+        .eq('id', session.user.id)
+        .single();
+      setEsClienteEspecial(!!data?.cliente_especial);
+    };
+    fetchClienteEspecial();
+  }, [session]);
+
+  const SERVICIOS_CONFIG_BASE = {
+    'REPRO POTENCIA GASOLINA': [
       { id: 'b_s1', name: 'STAGE 1 (INCLUYE VMAX OFF)', price: 14 },
       { id: 'b_s1pb', name: 'STAGE 1 + POPS AND BANGS', price: 18 },
       { id: 'b_s2', name: 'STAGE 2 (REQUIERE MODS)', price: 16 },
       { id: 'b_s2pb', name: 'STAGE 2 + POPS AND BANGS', price: 22 },
       { id: 'b_pb', name: 'POPS AND BANGS (SOLO)', price: 6 }
     ],
-    'REPRO DIÉSEL': [
+    'REPRO POTENCIA DIESEL': [
       { id: 'd_s1', name: 'STAGE 1', price: 14 },
       { id: 'd_s1egr', name: 'STAGE 1 + EGR OFF', price: 15 },
       { id: 'd_s1dpf', name: 'STAGE 1 + DPF OFF + EGR OFF', price: 16 },
       { id: 'd_s1full', name: 'STAGE 1 + DPF + EGR OFF + ADBLUE OFF', price: 19 },
       { id: 'd_s2', name: 'STAGE 2 (POTENCIA + MODS)', price: 16 }
     ],
-    'ANULACIONES EURO': [
-      { id: 'dpf_egr', name: 'DPF OFF + EGR OFF', price: 6 },
-      { id: 'adblue_full', name: 'ADBLUE + DPF & EGR OFF', price: 8 },
-      { id: 'egr_only', name: 'EGR OFF', price: 4 },
-      { id: 'adblue_only', name: 'ADBLUE OFF', price: 6 },
+    'ANULACIONES - ELIMINACIONES EURO DIESEL': [
+      { id: 'dpf_only', name: 'DPF OFF', price: 7 },
+      { id: 'dpf_egr', name: 'DPF OFF + EGR OFF', price: 9 },
+      { id: 'adblue_full', name: 'ADBLUE + DPF & EGR OFF', price: 11 },
+      { id: 'egr_only', name: 'EGR OFF', price: 7 },
+      { id: 'adblue_only', name: 'ADBLUE OFF', price: 7 },
       { id: 'restauracion_orig', name: 'RESTAURACIÓN ORIG', price: 6 }
     ],
-    'ANULACIONES EURO (CAMIONES)': [
-      { id: 'truck_dpf_egr', name: 'DPF OFF + EGR OFF', price: 12 },
-      { id: 'truck_adblue_full', name: 'ADBLUE + DPF & EGR OFF', price: 16 },
-      { id: 'truck_egr_only', name: 'EGR OFF', price: 8 }, 
-      { id: 'truck_adbue_only', name: 'ADBLUE OFF', price: 20 },  
-      { id: 'truck_dpf_only', name: 'DPF OFF', price: 12 }, 
-      { id: 'truck_cummins_emissions', name: 'CUMMINS EMISSIONS', price: 35 }
+    'ANULACIONES - ELIMINACIONES HD / CAMIONES / AGRICOLA': [
+      { id: 'truck_dpf_only', name: 'DPF OFF HD', price: 12 },
+      { id: 'truck_egr_only', name: 'EGR OFF', price: 12 },
+      { id: 'truck_adblue_only', name: 'ADBLUE OFF', price: 12 },
+      { id: 'truck_dpf_egr', name: 'DPF + EGR OFF', price: 15 },
+      { id: 'truck_dpf_adblue', name: 'DPF + ADBLUE OFF', price: 15 },
+      { id: 'truck_egr_adblue', name: 'EGR + ADBLUE OFF', price: 15 },
+      { id: 'truck_dpf_egr_adblue', name: 'DPF + EGR + ADBLUE OFF', price: 18 }
     ],
     'DESACTIVACIONES': [
       { id: 'dtc', name: 'DTC OFF', price: 3 },
@@ -122,6 +140,13 @@ const Simulador = () => {
       { id: 'flaps_swirls', name: 'FLAPS/SWIRLS', price: 6 }
     ]
   };
+
+  const SERVICIOS_CONFIG = Object.fromEntries(
+    Object.entries(SERVICIOS_CONFIG_BASE).map(([categoria, servicios]) => [
+      categoria,
+      servicios.map(s => ({ ...s, price: precioServicio(s.id, s.price, esClienteEspecial) }))
+    ])
+  );
 
   const totalPrice = servicioSel ? servicioSel.price : 0;
 

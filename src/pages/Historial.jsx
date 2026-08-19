@@ -475,13 +475,13 @@ const Historial = ({ session }) => {
               <th style={styles.th}>Fecha</th>
               {isAdmin && <th style={styles.th}>Empresa / Cliente</th>}
               <th style={styles.th}>Descripción</th>
-              {isAdmin && <th style={styles.th}>Admin</th>}
+              <th style={styles.th}>Realizado por</th>
               <th style={{ ...styles.th, textAlign: 'right' }}>Cantidad</th>
             </tr>
           </thead>
           <tbody>
             {loading && movimientos.length === 0
-              ? renderSkeletonRows(isAdmin ? 5 : 3)
+              ? renderSkeletonRows(isAdmin ? 5 : 4)
               : movsPaginados.map((m, i) => {
                 const dateObj = new Date(m.created_at);
                 return (
@@ -510,14 +510,12 @@ const Historial = ({ session }) => {
                       </td>
                     )}
                     <td style={{ ...styles.td, color: tokens.inkSoft }}>{m.descripcion}</td>
-                    {isAdmin && (
-                      <td style={styles.td}>
-                        <span style={styles.adminBadge}>
-                          <ShieldCheck size={11} />
-                          {m.admin_email || 'Sistema'}
-                        </span>
-                      </td>
-                    )}
+                    <td style={styles.td}>
+                      <span style={styles.adminBadge}>
+                        <ShieldCheck size={11} />
+                        {m.admin_email || 'Sistema'}
+                      </span>
+                    </td>
                     <td style={styles.montoPositivo}>
                       +{m.cantidad.toLocaleString('es-CL')}
                     </td>
