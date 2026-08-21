@@ -128,7 +128,8 @@ const Admin = ({ session }) => {
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
     'oliver.zuniga@gmail.com',
-    'focaldevs@gmail.com'
+    'focaldevs@gmail.com',
+    'respaldoestudiovaldivia@gmail.com'
   ];
 
   // Resumen informativo de accesos. Esto refleja lo que está definido en el
@@ -138,6 +139,7 @@ const Admin = ({ session }) => {
     { email: 'sebastianzunigavaldivia@gmail.com', acceso: 'Acceso total (Administración, Clientes, Archivos, Historial, Tickets)' },
     { email: 'oliver.zuniga@gmail.com', acceso: 'Acceso total (Administración, Clientes, Archivos, Historial, Tickets)' },
     { email: 'focaldevs@gmail.com', acceso: 'Acceso total (Administración, Clientes, Archivos, Historial, Tickets)' },
+    { email: 'respaldoestudiovaldivia@gmail.com', acceso: 'Acceso total (Administración, Clientes, Archivos, Historial, Tickets)' },
     { email: 'alientechchile@gmail.com', acceso: 'Archivos y Clientes (aprobar/rechazar/eliminar) — sin acceso a Administración' }
   ];
 
@@ -816,6 +818,7 @@ const Admin = ({ session }) => {
             <tr>
               <th style={styles.th}>Email</th>
               <th style={styles.th}>Nombre</th>
+              <th style={styles.th}>Teléfono</th>
               <th style={styles.th}>Créditos</th>
               <th style={styles.th}>Acciones</th>
             </tr>
@@ -825,6 +828,9 @@ const Admin = ({ session }) => {
               <tr key={u.id} className="admin-row" style={{ animationDelay: `${i * 25}ms` }}>
                 <td style={styles.td}>{u.email}</td>
                 <td style={{ ...styles.td, color: t.inkSoft }}>{u.full_name || 'Sin nombre'}</td>
+                <td style={{ ...styles.td, color: u.phone ? t.inkSoft : t.inkFaint, fontStyle: u.phone ? 'normal' : 'italic' }}>
+                  {u.phone || 'Sin número registrado'}
+                </td>
                 <td style={styles.td}>
                   <span style={styles.creditBadge(u.credits > 0)}>{u.credits?.toLocaleString('es-CL')}</span>
                 </td>
@@ -852,7 +858,7 @@ const Admin = ({ session }) => {
             ))}
             {!loading && usersPaginados.length === 0 && (
               <tr>
-                <td colSpan="4">
+                <td colSpan="5">
                   <div style={styles.emptyState}>
                     <Icon.Inbox />
                     <span>No se encontraron usuarios.</span>

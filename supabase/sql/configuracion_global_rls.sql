@@ -21,7 +21,8 @@ create policy "Admins actualizan configuración global"
     (auth.jwt() ->> 'email') in (
       'sebastianzunigavaldivia@gmail.com',
       'oliver.zuniga@gmail.com',
-      'focaldevs@gmail.com'
+      'focaldevs@gmail.com',
+      'respaldoestudiovaldivia@gmail.com'
     )
     or (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   )
@@ -29,7 +30,8 @@ create policy "Admins actualizan configuración global"
     (auth.jwt() ->> 'email') in (
       'sebastianzunigavaldivia@gmail.com',
       'oliver.zuniga@gmail.com',
-      'focaldevs@gmail.com'
+      'focaldevs@gmail.com',
+      'respaldoestudiovaldivia@gmail.com'
     )
     or (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );

@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 
 const Tickets = ({ session }) => {
   const [tickets, setTickets] = useState([]);
+  const [tabTickets, setTabTickets] = useState('activos'); // 'activos' o 'archivados' (solo admin)
   const [clientes, setClientes] = useState([]); // Lista de clientes para el select admin
   const [selectedClienteId, setSelectedClienteId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -24,7 +25,8 @@ const Tickets = ({ session }) => {
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
     'oliver.zuniga@gmail.com',
-    'focaldevs@gmail.com'
+    'focaldevs@gmail.com',
+    'respaldoestudiovaldivia@gmail.com'
   ];
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
 
@@ -221,6 +223,15 @@ const Tickets = ({ session }) => {
     await supabase.from('tickets').update({ estado: nuevoEstado }).eq('id', id);
   };
 
+  const toggleArchivado = async (id, valorActual) => {
+    setTickets(prev => prev.map(t => t.id === id ? { ...t, archivado: !valorActual } : t));
+    const { error } = await supabase.from('tickets').update({ archivado: !valorActual }).eq('id', id);
+    if (error) {
+      alert('Error al archivar el ticket: ' + error.message);
+      setTickets(prev => prev.map(t => t.id === id ? { ...t, archivado: valorActual } : t));
+    }
+  };
+
   const crearTicket = async (e) => {
     e.preventDefault();
     let uploadedFileUrl = null;
@@ -406,6 +417,33 @@ const Tickets = ({ session }) => {
         </div>
       </div>
 
+      {isAdmin && (
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+          <button
+            onClick={() => setTabTickets('activos')}
+            style={{
+              padding: '9px 18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11.5px', textTransform: 'uppercase',
+              border: darkMode ? '1px solid #334155' : 'none', borderRadius: '4px',
+              backgroundColor: tabTickets === 'activos' ? (darkMode ? '#2563eb' : '#000000') : (darkMode ? '#1e293b' : '#ddd'),
+              color: tabTickets === 'activos' ? '#fff' : (darkMode ? '#94a3b8' : '#666')
+            }}
+          >
+            Activos ({tickets.filter(t => !t.archivado).length})
+          </button>
+          <button
+            onClick={() => setTabTickets('archivados')}
+            style={{
+              padding: '9px 18px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11.5px', textTransform: 'uppercase',
+              border: darkMode ? '1px solid #334155' : 'none', borderRadius: '4px',
+              backgroundColor: tabTickets === 'archivados' ? (darkMode ? '#2563eb' : '#000000') : (darkMode ? '#1e293b' : '#ddd'),
+              color: tabTickets === 'archivados' ? '#fff' : (darkMode ? '#94a3b8' : '#666')
+            }}
+          >
+            Archivados ({tickets.filter(t => t.archivado).length})
+          </button>
+        </div>
+      )}
+
       <div style={styles.card}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -418,7 +456,9 @@ const Tickets = ({ session }) => {
             </tr>
           </thead>
           <tbody>
-            {tickets.map(t => (
+            {tickets
+              .filter(t => !isAdmin || (tabTickets === 'archivados' ? t.archivado : !t.archivado))
+              .map(t => (
               <tr key={t.id} style={styles.tableRow}>
                 <td style={styles.tdCell}>{formatDateTime(t.created_at)}</td>
                 <td style={styles.tdCell}><strong>{t.asunto}</strong></td>
@@ -446,6 +486,23 @@ const Tickets = ({ session }) => {
                   >
                     VER CHAT
                   </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => toggleArchivado(t.id, t.archivado)}
+                      style={{
+                        marginLeft: '6px',
+                        padding: '5px 10px',
+                        cursor: 'pointer',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        backgroundColor: 'transparent',
+                        color: darkMode ? '#94a3b8' : '#666',
+                        border: darkMode ? '1px solid #475569' : '1px solid #ddd'
+                      }}
+                    >
+                      {t.archivado ? 'DESARCHIVAR' : 'ARCHIVAR'}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

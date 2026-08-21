@@ -185,41 +185,43 @@ const Layout = ({ session }) => {
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
     'oliver.zuniga@gmail.com',
-    'focaldevs@gmail.com'
+    'focaldevs@gmail.com',
+    'respaldoestudiovaldivia@gmail.com'
   ];
   // Acceso a CLIENTES: admins completos, más quienes solo gestionan clientes.
   const CLIENTES_ACCESS_EMAILS = [...ADMIN_EMAILS, 'alientechchile@gmail.com'];
+  // Acceso admin a ARCHIVOS (mismo criterio que Archivos.jsx).
+  const ARCHIVOS_ADMIN_EMAILS = [...ADMIN_EMAILS, 'alientechchile@gmail.com'];
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
   const canAccessClientes = CLIENTES_ACCESS_EMAILS.includes(session?.user?.email?.toLowerCase());
+  const isArchivosAdmin = ARCHIVOS_ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
 
-  // 📁 NOTIFICACIÓN DE ARCHIVOS ("En Gestión" o "Completado")
+  // 📁 NOTIFICACIÓN DE ARCHIVOS: para admins de Archivos, archivos recién
+  // subidos (pendientes de revisar); para clientes, sus propios archivos en gestión.
   const fetchActiveFilesCount = useCallback(async () => {
     if (!session?.user?.id) return;
 
     try {
       let queryFiles = supabase
-        .from('archivos') // Reemplaza 'archivos' por el nombre exacto de tu tabla si difiere
+        .from('archivos')
         .select('id, estado, user_id');
 
-      if (!isAdmin) {
+      if (!isArchivosAdmin) {
         queryFiles = queryFiles.eq('user_id', session.user.id);
       }
 
       const { data: filesData, error } = await queryFiles;
       if (error || !filesData) return;
 
-      // Filtramos por los estados requeridos (Asegúrate que coincidan con cómo los guardas en BD)
-      const count = filesData.filter(f => 
-        f.estado === 'En gestión' || 
-        f.estado === 'En Gestión' ||
-        f.estado === 'en_gestion'
-      ).length;
+      const count = isArchivosAdmin
+        ? filesData.filter(f => f.estado === 'pendiente').length
+        : filesData.filter(f => f.estado === 'en gestión').length;
 
       setFileCount(count);
     } catch (err) {
       console.error("Error calculando notificaciones de archivos:", err);
     }
-  }, [session?.user?.id, isAdmin]);
+  }, [session?.user?.id, isArchivosAdmin]);
 
   // 🛠️ NOTIFICACIÓN DE TICKETS
   const fetchPendingTicketsCount = useCallback(async () => {
@@ -228,14 +230,17 @@ const Layout = ({ session }) => {
     try {
       let queryTickets = supabase
         .from('tickets')
-        .select('id, estado, user_id');
+        .select('id, estado, user_id, archivado');
 
       if (!isAdmin) {
         queryTickets = queryTickets.eq('user_id', session.user.id);
       }
 
-      const { data: ticketsData, error: errTickets } = await queryTickets;
-      if (errTickets || !ticketsData) return;
+      const { data: rawTicketsData, error: errTickets } = await queryTickets;
+      if (errTickets || !rawTicketsData) return;
+
+      // Los tickets archivados no deben seguir avisando al admin.
+      const ticketsData = isAdmin ? rawTicketsData.filter(t => !t.archivado) : rawTicketsData;
 
       let count = ticketsData.filter(t => t.estado === 'Pendiente').length;
       const otherTickets = ticketsData.filter(t => t.estado !== 'Pendiente');

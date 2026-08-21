@@ -59,7 +59,8 @@ function App() {
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
     'oliver.zuniga@gmail.com',
-    'focaldevs@gmail.com'
+    'focaldevs@gmail.com',
+    'respaldoestudiovaldivia@gmail.com'
   ];
 
   // Acceso a /clientes: los administradores completos, más los que solo

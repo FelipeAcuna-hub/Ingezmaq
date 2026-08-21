@@ -99,17 +99,17 @@ const Simulador = ({ session }) => {
 
   const SERVICIOS_CONFIG_BASE = {
     'REPRO POTENCIA GASOLINA': [
-      { id: 'b_s1', name: 'STAGE 1 (INCLUYE VMAX OFF)', price: 14 },
-      { id: 'b_s1pb', name: 'STAGE 1 + POPS AND BANGS', price: 18 },
-      { id: 'b_s2', name: 'STAGE 2 (REQUIERE MODS)', price: 16 },
+      { id: 'b_s1', name: 'STAGE 1 + VMAX', price: 13 },
+      { id: 'b_s1pb', name: 'STAGE 1 + POPS AND BANGS', price: 14 },
+      { id: 'b_s2', name: 'STAGE 2 (REQUIERE MODS)', price: 18 },
       { id: 'b_s2pb', name: 'STAGE 2 + POPS AND BANGS', price: 22 },
       { id: 'b_pb', name: 'POPS AND BANGS (SOLO)', price: 6 }
     ],
     'REPRO POTENCIA DIESEL': [
-      { id: 'd_s1', name: 'STAGE 1', price: 14 },
-      { id: 'd_s1egr', name: 'STAGE 1 + EGR OFF', price: 15 },
-      { id: 'd_s1dpf', name: 'STAGE 1 + DPF OFF + EGR OFF', price: 16 },
-      { id: 'd_s1full', name: 'STAGE 1 + DPF + EGR OFF + ADBLUE OFF', price: 19 },
+      { id: 'd_s1', name: 'STAGE 1', price: 12 },
+      { id: 'd_s1egr', name: 'STAGE 1 + EGR OFF', price: 13 },
+      { id: 'd_s1dpf', name: 'STAGE 1 + DPF OFF + EGR OFF', price: 14 },
+      { id: 'd_s1full', name: 'STAGE 1 + DPF + EGR OFF + ADBLUE OFF', price: 15 },
       { id: 'd_s2', name: 'STAGE 2 (POTENCIA + MODS)', price: 16 }
     ],
     'ANULACIONES - ELIMINACIONES EURO DIESEL': [
@@ -117,8 +117,9 @@ const Simulador = ({ session }) => {
       { id: 'dpf_egr', name: 'DPF OFF + EGR OFF', price: 9 },
       { id: 'adblue_full', name: 'ADBLUE + DPF & EGR OFF', price: 11 },
       { id: 'egr_only', name: 'EGR OFF', price: 7 },
+      { id: 'dpf_adblue', name: 'DPF + ADBLUE', price: 9 },
       { id: 'adblue_only', name: 'ADBLUE OFF', price: 7 },
-      { id: 'restauracion_orig', name: 'RESTAURACIÓN ORIG', price: 6 }
+      { id: 'restauracion_orig', name: 'RESTAURACION ORI', price: 6 }
     ],
     'ANULACIONES - ELIMINACIONES HD / CAMIONES / AGRICOLA': [
       { id: 'truck_dpf_only', name: 'DPF OFF HD', price: 12 },
@@ -130,14 +131,15 @@ const Simulador = ({ session }) => {
       { id: 'truck_dpf_egr_adblue', name: 'DPF + EGR + ADBLUE OFF', price: 18 }
     ],
     'DESACTIVACIONES': [
-      { id: 'dtc', name: 'DTC OFF', price: 3 },
+      { id: 'dtc', name: 'DTC OFF', price: 4 },
       { id: 'lambda', name: 'LAMBDA OFF', price: 6 },
+      { id: 'mafof', name: 'MAF OFF', price: 5 },
       { id: 'immo', name: 'IMMO OFF', price: 6 },
-      { id: 'vmax', name: 'VMAX OFF (LIMITADOR DE VELOCIDAD)', price: 8 },
+      { id: 'vmax', name: 'VMAX OFF (LIMITADOR DE VELOCIDAD)', price: 5 },
       { id: 'immo_toyota', name: 'IMMO OFF SPECIAL (TOYOTA)', price: 8 },
-      { id: 'decat_off', name: 'DECAT OFF', price: 6 },
+      { id: 'decat_off', name: 'DECAT-CAT OFF', price: 5 },
       { id: 'tva_off', name: 'TVA OFF', price: 6 },
-      { id: 'flaps_swirls', name: 'FLAPS/SWIRLS', price: 6 }
+      { id: 'flaps_swirls', name: 'FLAPS/SWIRLS', price: 7 }
     ]
   };
 

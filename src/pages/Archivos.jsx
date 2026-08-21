@@ -18,6 +18,7 @@ const Archivos = ({ session }) => {
     'sebastianzunigavaldivia@gmail.com',
     'oliver.zuniga@gmail.com',
     'focaldevs@gmail.com',
+    'respaldoestudiovaldivia@gmail.com',
     'alientechchile@gmail.com'
   ];
 

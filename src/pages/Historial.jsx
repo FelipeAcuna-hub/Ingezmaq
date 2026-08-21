@@ -30,7 +30,8 @@ const Historial = ({ session }) => {
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
     'oliver.zuniga@gmail.com',
-    'focaldevs@gmail.com'
+    'focaldevs@gmail.com',
+    'respaldoestudiovaldivia@gmail.com'
   ];
 
   const isAdmin =

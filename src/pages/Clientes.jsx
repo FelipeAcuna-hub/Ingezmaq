@@ -5,7 +5,8 @@ import { supabase } from '../supabaseClient';
 const ADMIN_EMAILS = [
   'sebastianzunigavaldivia@gmail.com',
   'oliver.zuniga@gmail.com',
-  'focaldevs@gmail.com'
+  'focaldevs@gmail.com',
+  'respaldoestudiovaldivia@gmail.com'
 ];
 const CLIENTES_ACCESS_EMAILS = [...ADMIN_EMAILS, 'alientechchile@gmail.com'];
 
@@ -108,7 +109,7 @@ const Clientes = ({ session }) => {
       mail.includes(searchLower);
     
     return cumpleTab && cumpleBusqueda;
-  });
+  }).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'es', { sensitivity: 'base' }));
 
   // --- LÓGICA DE PAGINACIÓN ---
   const totalPaginas = Math.ceil(clientesFiltrados.length / itemsPorPagina);
@@ -253,7 +254,12 @@ const Clientes = ({ session }) => {
                     {c.company || 'PARTICULAR'}
                   </div>
                 </td>
-                <td style={styles.td}>{c.email}</td>
+                <td style={styles.td}>
+                  <div>{c.email}</div>
+                  <div style={{ fontSize: '11px', color: darkMode ? '#94a3b8' : '#888', fontStyle: c.phone ? 'normal' : 'italic' }}>
+                    {c.phone || 'Sin número registrado'}
+                  </div>
+                </td>
                 <td style={styles.td}>
                   <div style={{ fontSize: '16px', fontWeight: 'bold', color: darkMode ? '#4ade80' : '#333' }}>
                     {c.credits || 0}

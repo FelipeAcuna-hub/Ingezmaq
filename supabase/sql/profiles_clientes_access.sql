@@ -17,6 +17,7 @@ create policy "Gestion de clientes: update"
       'sebastianzunigavaldivia@gmail.com',
       'oliver.zuniga@gmail.com',
       'focaldevs@gmail.com',
+      'respaldoestudiovaldivia@gmail.com',
       'alientechchile@gmail.com'
     )
   )
@@ -25,6 +26,7 @@ create policy "Gestion de clientes: update"
       'sebastianzunigavaldivia@gmail.com',
       'oliver.zuniga@gmail.com',
       'focaldevs@gmail.com',
+      'respaldoestudiovaldivia@gmail.com',
       'alientechchile@gmail.com'
     )
   );
@@ -38,6 +40,7 @@ create policy "Gestion de clientes: delete"
       'sebastianzunigavaldivia@gmail.com',
       'oliver.zuniga@gmail.com',
       'focaldevs@gmail.com',
+      'respaldoestudiovaldivia@gmail.com',
       'alientechchile@gmail.com'
     )
   );
@@ -53,6 +56,7 @@ create policy "Gestion de clientes: select"
       'sebastianzunigavaldivia@gmail.com',
       'oliver.zuniga@gmail.com',
       'focaldevs@gmail.com',
+      'respaldoestudiovaldivia@gmail.com',
       'alientechchile@gmail.com'
     )
   );
