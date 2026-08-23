@@ -239,8 +239,8 @@ const Layout = ({ session }) => {
       const { data: rawTicketsData, error: errTickets } = await queryTickets;
       if (errTickets || !rawTicketsData) return;
 
-      // Los tickets archivados no deben seguir avisando al admin.
-      const ticketsData = isAdmin ? rawTicketsData.filter(t => !t.archivado) : rawTicketsData;
+      // Los tickets archivados no deben seguir avisando (ni al admin ni al cliente).
+      const ticketsData = rawTicketsData.filter(t => !t.archivado);
 
       let count = ticketsData.filter(t => t.estado === 'Pendiente').length;
       const otherTickets = ticketsData.filter(t => t.estado !== 'Pendiente');
@@ -360,7 +360,6 @@ const Layout = ({ session }) => {
   const styles = {
     container: {
       display: 'flex',
-      height: '100vh',
       width: '100vw',
       background: darkMode
         ? 'linear-gradient(180deg, #030712 0%, #02040a 100%)'
@@ -379,7 +378,6 @@ const Layout = ({ session }) => {
       shrink: 0,
       position: isMobile ? 'fixed' : 'relative',
       zIndex: 1000,
-      height: '100vh',
       borderRight: '1px solid rgba(255, 255, 255, 0.06)',
       boxShadow: isMobile ? '10px 0 30px rgba(0,0,0,0.4)' : 'none',
       transition: 'transform 0.3s ease-in-out',
@@ -496,8 +494,13 @@ const Layout = ({ session }) => {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="layout-viewport-h" style={styles.container}>
       <style>{`
+        /* En mobile, 100vh no descuenta la barra de direcciones de Safari/Chrome
+           (aparece/desaparece al hacer scroll), dejando un hueco blanco abajo.
+           100dvh sí la descuenta; los navegadores viejos ignoran esa línea y
+           se quedan con el 100vh de arriba. */
+        .layout-viewport-h { height: 100vh; height: 100dvh; }
         .layout-nav-scroll::-webkit-scrollbar { width: 5px; }
         .layout-nav-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 10px; }
         .layout-logout-btn:hover { background-color: rgba(239,68,68,0.12); border-color: #ef4444; }
@@ -508,7 +511,7 @@ const Layout = ({ session }) => {
         .layout-badge-pulse { animation: badgePulse 1.8s infinite; }
       `}</style>
 
-      <aside style={styles.sidebar}>
+      <aside className="layout-viewport-h" style={styles.sidebar}>
 
         <div style={styles.logoContainer}>
           <Link to="/" style={{ display: 'block', width: '100%', textAlign: 'center' }} onClick={() => setIsMenuOpen(false)}>

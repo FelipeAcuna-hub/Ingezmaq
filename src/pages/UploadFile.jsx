@@ -391,6 +391,20 @@ const UploadFile = ({ session }) => {
     },
     row: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '20px', marginBottom: '20px' },
     label: { display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', color: darkMode ? '#94a3b8' : '#333', textTransform: 'uppercase' },
+    // Oculta el <input type="file"> sin display:none — Safari a veces no abre
+    // el selector (ni dispara el evento de selección) en inputs display:none.
+    hiddenFileInput: {
+      position: 'absolute',
+      width: '1px',
+      height: '1px',
+      padding: 0,
+      margin: '-1px',
+      overflow: 'hidden',
+      clip: 'rect(0,0,0,0)',
+      whiteSpace: 'nowrap',
+      border: 0,
+      opacity: 0
+    },
     input: {
       width: '100%',
       height: '42px',
@@ -540,7 +554,7 @@ const UploadFile = ({ session }) => {
         <div style={styles.gridFiles}>
           {/* --- 1. SUBIR ID --- */}
           <div style={styles.fileBox(!!fileId, false)} onClick={() => document.getElementById('fileId').click()}>
-            <input type="file" id="fileId" style={{ display: 'none' }} onChange={(e) => setFileId(e.target.files[0])} />
+            <input type="file" id="fileId" style={styles.hiddenFileInput} onChange={(e) => setFileId(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🆔</div>
             <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileId ? '#22c55e' : (darkMode ? '#94a3b8' : '#333') }}>
               {fileId ? 'ID LISTO' : 'SUBIR ID '}
@@ -576,7 +590,7 @@ const UploadFile = ({ session }) => {
 
           {/* --- 2. SUBIR MAPA --- */}
           <div style={styles.fileBox(!!fileMapa, true)} onClick={() => document.getElementById('fileMapa').click()}>
-            <input type="file" id="fileMapa" style={{ display: 'none' }} onChange={(e) => setFileMapa(e.target.files[0])} />
+            <input type="file" id="fileMapa" style={styles.hiddenFileInput} onChange={(e) => setFileMapa(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🗺️</div>
             <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileMapa ? '#22c55e' : '#2563eb' }}>
               {fileMapa ? 'MAPA LISTO' : 'SUBIR MAPA (OBLIGATORIO)'}
@@ -612,7 +626,7 @@ const UploadFile = ({ session }) => {
 
           {/* --- 3. SUBIR PASS --- */}
           <div style={styles.fileBox(!!filePass, false)} onClick={() => document.getElementById('filePass').click()}>
-            <input type="file" id="filePass" style={{ display: 'none' }} onChange={(e) => setFilePass(e.target.files[0])} />
+            <input type="file" id="filePass" style={styles.hiddenFileInput} onChange={(e) => setFilePass(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🔑</div>
             <div style={{ fontSize: '12px', fontWeight: 'bold', color: filePass ? '#22c55e' : (darkMode ? '#94a3b8' : '#333') }}>
               {filePass ? 'PASS LISTO' : 'SUBIR PASS (OPCIONAL)'}
@@ -663,7 +677,7 @@ const UploadFile = ({ session }) => {
             id="filesExtra"
             multiple
             accept="image/*,.pdf"
-            style={{ display: 'none' }}
+            style={styles.hiddenFileInput}
             onChange={(e) => {
               setFilesExtra(prev => [...prev, ...Array.from(e.target.files)]);
               e.target.value = '';

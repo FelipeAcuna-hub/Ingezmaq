@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Respaldo: si algún hueco de layout deja ver el fondo real de la página
+   (por ejemplo el bounce/scroll de mobile), que sea el navy de la app
+   (modo oscuro, el default) en vez del blanco por defecto del navegador. */
+html, body {
+  background-color: #0f172a;
+}
+
 /* Efecto para que las letras crezcan suavemente */
 /* 1. Mantén tu base igual */
 .nav-item {
