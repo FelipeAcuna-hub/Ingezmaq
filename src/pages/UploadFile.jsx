@@ -395,19 +395,21 @@ const UploadFile = ({ session }) => {
     },
     row: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '20px', marginBottom: '20px' },
     label: { display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', color: darkMode ? '#94a3b8' : '#333', textTransform: 'uppercase' },
-    // Oculta el <input type="file"> sin display:none — Safari a veces no abre
-    // el selector (ni dispara el evento de selección) en inputs display:none.
+    // Oculta el <input type="file"> sin display:none (Safari a veces no abre el
+    // selector con eso) y sin recortarlo a 1px (eso hacía que Chrome/Safari
+    // saltaran la página al enfocarlo, por quedar mal ubicado dentro de
+    // contenedores con position:fixed). Cubre el mismo espacio que el
+    // recuadro visible, solo que invisible.
     hiddenFileInput: {
       position: 'absolute',
-      width: '1px',
-      height: '1px',
+      inset: 0,
+      width: '100%',
+      height: '100%',
+      margin: 0,
       padding: 0,
-      margin: '-1px',
-      overflow: 'hidden',
-      clip: 'rect(0,0,0,0)',
-      whiteSpace: 'nowrap',
       border: 0,
-      opacity: 0
+      opacity: 0,
+      cursor: 'pointer'
     },
     input: {
       width: '100%',
@@ -424,6 +426,7 @@ const UploadFile = ({ session }) => {
     },
     gridFiles: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '25px' },
     fileBox: (hasFile, isRequired) => ({
+      position: 'relative',
       border: hasFile
         ? '2px solid #22c55e'
         : (isRequired ? '2px dashed #2563eb' : (darkMode ? '2px dashed #475569' : '2px dashed #ddd')),
@@ -577,6 +580,8 @@ const UploadFile = ({ session }) => {
                   if (fileIdRef.current) fileIdRef.current.value = '';
                 }}
                 style={{
+                  position: 'relative',
+                  zIndex: 1,
                   marginTop: '6px',
                   backgroundColor: 'transparent',
                   color: '#ef4444',
@@ -614,6 +619,8 @@ const UploadFile = ({ session }) => {
                   if (fileMapaRef.current) fileMapaRef.current.value = '';
                 }}
                 style={{
+                  position: 'relative',
+                  zIndex: 1,
                   marginTop: '6px',
                   backgroundColor: 'transparent',
                   color: '#ef4444',
@@ -651,6 +658,8 @@ const UploadFile = ({ session }) => {
                   if (filePassRef.current) filePassRef.current.value = '';
                 }}
                 style={{
+                  position: 'relative',
+                  zIndex: 1,
                   marginTop: '6px',
                   backgroundColor: 'transparent',
                   color: '#ef4444',
