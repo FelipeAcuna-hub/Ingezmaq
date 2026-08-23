@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation, useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { PRECIOS_ESPECIALES, precioServicio } from '../preciosEspeciales';
@@ -154,6 +154,10 @@ const UploadFile = ({ session }) => {
   const [fileMapa, setFileMapa] = useState(null);
   const [filePass, setFilePass] = useState(null);
   const [filesExtra, setFilesExtra] = useState([]);
+  const fileIdRef = useRef(null);
+  const fileMapaRef = useRef(null);
+  const filePassRef = useRef(null);
+  const filesExtraRef = useRef(null);
 
   const [loading, setLoading] = useState(false);
   const [categoriaSel, setCategoriaSel] = useState(null);
@@ -553,8 +557,8 @@ const UploadFile = ({ session }) => {
 
         <div style={styles.gridFiles}>
           {/* --- 1. SUBIR ID --- */}
-          <div style={styles.fileBox(!!fileId, false)} onClick={() => document.getElementById('fileId').click()}>
-            <input type="file" id="fileId" style={styles.hiddenFileInput} onChange={(e) => setFileId(e.target.files[0])} />
+          <label style={styles.fileBox(!!fileId, false)}>
+            <input ref={fileIdRef} type="file" style={styles.hiddenFileInput} onChange={(e) => setFileId(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🆔</div>
             <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileId ? '#22c55e' : (darkMode ? '#94a3b8' : '#333') }}>
               {fileId ? 'ID LISTO' : 'SUBIR ID '}
@@ -567,9 +571,10 @@ const UploadFile = ({ session }) => {
             {fileId && (
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); // Evita abrir el selector de archivos
+                  e.preventDefault(); // Evita reabrir el selector de archivos (label)
+                  e.stopPropagation();
                   setFileId(null);
-                  document.getElementById('fileId').value = '';
+                  if (fileIdRef.current) fileIdRef.current.value = '';
                 }}
                 style={{
                   marginTop: '6px',
@@ -586,11 +591,11 @@ const UploadFile = ({ session }) => {
                 ✕ Quitar archivo
               </button>
             )}
-          </div>
+          </label>
 
           {/* --- 2. SUBIR MAPA --- */}
-          <div style={styles.fileBox(!!fileMapa, true)} onClick={() => document.getElementById('fileMapa').click()}>
-            <input type="file" id="fileMapa" style={styles.hiddenFileInput} onChange={(e) => setFileMapa(e.target.files[0])} />
+          <label style={styles.fileBox(!!fileMapa, true)}>
+            <input ref={fileMapaRef} type="file" style={styles.hiddenFileInput} onChange={(e) => setFileMapa(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🗺️</div>
             <div style={{ fontSize: '12px', fontWeight: 'bold', color: fileMapa ? '#22c55e' : '#2563eb' }}>
               {fileMapa ? 'MAPA LISTO' : 'SUBIR MAPA (OBLIGATORIO)'}
@@ -603,9 +608,10 @@ const UploadFile = ({ session }) => {
             {fileMapa && (
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); // Evita abrir el selector de archivos
+                  e.preventDefault(); // Evita reabrir el selector de archivos (label)
+                  e.stopPropagation();
                   setFileMapa(null);
-                  document.getElementById('fileMapa').value = '';
+                  if (fileMapaRef.current) fileMapaRef.current.value = '';
                 }}
                 style={{
                   marginTop: '6px',
@@ -622,11 +628,11 @@ const UploadFile = ({ session }) => {
                 ✕ Quitar archivo
               </button>
             )}
-          </div>
+          </label>
 
           {/* --- 3. SUBIR PASS --- */}
-          <div style={styles.fileBox(!!filePass, false)} onClick={() => document.getElementById('filePass').click()}>
-            <input type="file" id="filePass" style={styles.hiddenFileInput} onChange={(e) => setFilePass(e.target.files[0])} />
+          <label style={styles.fileBox(!!filePass, false)}>
+            <input ref={filePassRef} type="file" style={styles.hiddenFileInput} onChange={(e) => setFilePass(e.target.files[0])} />
             <div style={{ fontSize: '24px', marginBottom: '5px' }}>🔑</div>
             <div style={{ fontSize: '12px', fontWeight: 'bold', color: filePass ? '#22c55e' : (darkMode ? '#94a3b8' : '#333') }}>
               {filePass ? 'PASS LISTO' : 'SUBIR PASS (OPCIONAL)'}
@@ -639,9 +645,10 @@ const UploadFile = ({ session }) => {
             {filePass && (
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); // Evita abrir el selector de archivos
+                  e.preventDefault(); // Evita reabrir el selector de archivos (label)
+                  e.stopPropagation();
                   setFilePass(null);
-                  document.getElementById('filePass').value = '';
+                  if (filePassRef.current) filePassRef.current.value = '';
                 }}
                 style={{
                   marginTop: '6px',
@@ -658,7 +665,7 @@ const UploadFile = ({ session }) => {
                 ✕ Quitar archivo
               </button>
             )}
-          </div>
+          </label>
         </div>
 
         <h2 style={{ fontSize: '20px', margin: '40px 0 10px', borderBottom: darkMode ? '1px solid #334155' : '1px solid #eee', paddingBottom: '10px' }}>
@@ -668,13 +675,12 @@ const UploadFile = ({ session }) => {
           Opcional. Sube fotos o PDFs extra si los necesitas: PDF INFORME, FOTO TABLERO, PATENTE, ANEXOS, etc.
         </p>
 
-        <div
+        <label
           style={{ ...styles.fileBox(filesExtra.length > 0, false), marginBottom: '15px' }}
-          onClick={() => document.getElementById('filesExtra').click()}
         >
           <input
+            ref={filesExtraRef}
             type="file"
-            id="filesExtra"
             multiple
             accept="image/*,.pdf"
             style={styles.hiddenFileInput}
@@ -690,7 +696,7 @@ const UploadFile = ({ session }) => {
           <div style={{ fontSize: '10px', color: darkMode ? '#64748b' : '#888' }}>
             Puedes seleccionar más de uno
           </div>
-        </div>
+        </label>
 
         {filesExtra.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '25px' }}>
