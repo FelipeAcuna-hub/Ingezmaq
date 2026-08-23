@@ -426,6 +426,7 @@ const UploadFile = ({ session }) => {
     },
     gridFiles: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '25px' },
     fileBox: (hasFile, isRequired) => ({
+      display: 'block',
       position: 'relative',
       border: hasFile
         ? '2px solid #22c55e'
