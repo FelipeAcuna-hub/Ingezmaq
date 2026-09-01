@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 
-import Layout from './components/layout'; 
+import Layout from './components/layout';
 
 // Importación de tus páginas
 import Login from './pages/Login';
@@ -14,37 +14,75 @@ import Creditos from './pages/Creditos';
 import Historial from './pages/Historial';
 import Tickets from './pages/Tickets';
 import Archivos from './pages/Archivos';
-import Admin from './pages/Admin'; 
-import UploadFile from './pages/UploadFile'; 
+import Admin from './pages/Admin';
+import UploadFile from './pages/UploadFile';
 import Simulador from './pages/Simulador';
 import Clientes from './pages/Clientes';
 
 function App() {
   const [session, setSession] = useState(null);
+  const [isApproved, setIsApproved] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // 🔒 Verifica sesión Y aprobación del admin en cada carga/cambio de sesión,
+  // no solo al enviar el formulario de login. Sin esto, cualquiera con una
+  // sesión guardada (aunque nunca lo hayan aprobado) entraba igual al
+  // recargar la página.
   useEffect(() => {
+    let active = true;
+
+    const applySession = async (currentSession) => {
+      if (!active) return;
+      setSession(currentSession);
+
+      if (currentSession?.user?.id) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('is_approved')
+          .eq('id', currentSession.user.id)
+          .single();
+
+        if (!active) return;
+
+        if (error || !data?.is_approved) {
+          // No aprobado (o perfil inexistente/inaccesible): no se le da acceso.
+          await supabase.auth.signOut();
+          if (active) {
+            setSession(null);
+            setIsApproved(false);
+          }
+        } else {
+          setIsApproved(true);
+        }
+      } else {
+        setIsApproved(false);
+      }
+
+      if (active) setLoading(false);
+    };
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
+      applySession(session);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       console.log("Estado de autenticación cambiado:", _event);
-      setSession(currentSession);
-      setLoading(false);
+      applySession(currentSession);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (loading) {
     return (
-      <div style={{ 
-        backgroundColor: '#000', 
-        height: '100vh', 
-        display: 'flex', 
-        justifyContent: 'center', 
+      <div style={{
+        backgroundColor: '#000',
+        height: '100vh',
+        display: 'flex',
+        justifyContent: 'center',
         alignItems: 'center',
         color: 'white',
         fontFamily: 'sans-serif',
@@ -55,6 +93,8 @@ function App() {
       </div>
     );
   }
+
+  const hasAccess = !!(session && session.user && isApproved);
 
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
@@ -77,28 +117,28 @@ function App() {
     <Router>
       <Routes>
         {/* --- RUTAS PÚBLICAS / INDEPENDIENTES (SIN LAYOUT) --- */}
-        <Route 
-          path="/login" 
-          element={!session ? <Login /> : <Navigate to="/" />} 
+        <Route
+          path="/login"
+          element={!hasAccess ? <Login /> : <Navigate to="/" />}
         />
-        <Route 
-          path="/recuperar-password" 
-          element={!session ? <RecuperarPassword /> : <Navigate to="/" />} 
+        <Route
+          path="/recuperar-password"
+          element={!hasAccess ? <RecuperarPassword /> : <Navigate to="/" />}
         />
-        <Route 
-          path="/RecuperarPassword" 
-          element={!session ? <RecuperarPassword /> : <Navigate to="/" />} 
+        <Route
+          path="/RecuperarPassword"
+          element={!hasAccess ? <RecuperarPassword /> : <Navigate to="/" />}
         />
-        
+
         {/* 🚀 RUTA INDEPENDIENTE: Pantalla limpia de Actualizar Contraseña */}
-        <Route 
-          path="/actualizar-password" 
-          element={<ActualizarPassword session={session} />} 
+        <Route
+          path="/actualizar-password"
+          element={<ActualizarPassword session={session} />}
         />
-        
+
         {/* --- GRUPO DE RUTAS PROTEGIDAS CON LAYOUT --- */}
-        <Route element={(session && session.user) ? <Layout session={session} /> : <Navigate to="/login" />}>
-          
+        <Route element={hasAccess ? <Layout session={session} /> : <Navigate to="/login" />}>
+
           <Route path="/" element={<Dashboard session={session} />} />
           <Route path="/perfil" element={<Perfil session={session} />} />
           <Route path="/creditos" element={<Creditos session={session} />} />
@@ -108,11 +148,11 @@ function App() {
           <Route path="/upload" element={<UploadFile session={session} />} />
           <Route path="/simulador" element={<Simulador session={session} />} />
           <Route path="/clientes" element={canAccessClientes ? <Clientes session={session} /> : <Navigate to="/" />} />
-          
+
           {/* Ruta Exclusiva para Administradores */}
-          <Route 
-            path="/admin" 
-            element={isAdmin ? <Admin session={session} /> : <Navigate to="/" />} 
+          <Route
+            path="/admin"
+            element={isAdmin ? <Admin session={session} /> : <Navigate to="/" />}
           />
 
         </Route>
