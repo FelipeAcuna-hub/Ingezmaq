@@ -66,7 +66,12 @@ const Login = () => {
             ]);
 
           if (profileError) {
-            console.error("Error al poblar la tabla profiles:", profileError.message);
+            // Si esto falla, queda una cuenta de auth sin perfil: invisible
+            // para los admins en /clientes y sin forma de ser aprobada. Mejor
+            // avisar de una y cerrar la sesión que se haya abierto sola, en
+            // vez de decirle "listo" y dejarlo en el limbo.
+            await supabase.auth.signOut();
+            throw new Error('No se pudo completar tu registro (' + profileError.message + '). Por favor intenta de nuevo o contacta a soporte.');
           }
         }
 
@@ -74,26 +79,14 @@ const Login = () => {
         setIsRegistering(false); // Cambia automáticamente a la pestaña de inicio de sesión
         
       } else {
-        const { data: { user }, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
-        
+        // La verificación de is_approved vive en App.jsx (se revisa en cada
+        // sesión, no solo acá), que decide si mostrar el portal o la
+        // pantalla de "cuenta en espera de aprobación".
+        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+
         if (loginError) throw loginError;
 
-        if (user) {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('is_approved')
-            .eq('id', user.id)
-            .single();
-
-          if (profileError) throw profileError;
-
-          if (profile && !profile.is_approved) {
-            await supabase.auth.signOut();
-            alert("⚠️ Acceso en espera: Tu cuenta aún no ha sido aprobada por el administrador.");
-            return;
-          }
-          navigate('/'); 
-        }
+        navigate('/');
       }
     } catch (error) {
       alert(error.message);

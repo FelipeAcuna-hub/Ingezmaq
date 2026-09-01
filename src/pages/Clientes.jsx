@@ -54,6 +54,48 @@ const Clientes = ({ session }) => {
         .eq('id', id);
 
       if (error) throw error;
+
+      const cliente = clientes.find(c => c.id === id);
+      const nombre = cliente?.full_name || '';
+
+      try {
+        const emailHtml = `
+          <div style="font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #030712; padding: 25px; color: #ffffff; margin: 0;">
+            <div style="max-width: 580px; margin: 0 auto; background-color: #070f24; border: 1px solid #1e293b; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+              <div style="background-color: #000000; padding: 25px; text-align: center; border-bottom: 3px solid #e11d48;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 2px; font-weight: bold; text-transform: uppercase;">CHIP <span style="color: #e11d48;">TUNING</span></h1>
+                <span style="color: #e11d48; font-size: 11px; font-weight: bold; letter-spacing: 1px; display: block; margin-top: 4px;">PORTAL DISTRIBUIDORES</span>
+              </div>
+              <div style="padding: 35px 30px; text-align: center;">
+                <div style="width: 60px; height: 60px; border-radius: 50%; background-color: rgba(34,197,94,0.15); color: #22c55e; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; font-size: 30px;">✅</div>
+                <h2 style="font-size: 18px; color: #ffffff; margin: 0 0 14px;">¡Tu cuenta fue aprobada!</h2>
+                <p style="font-size: 14px; color: #94a3b8; line-height: 1.6; margin: 0;">
+                  Hola${nombre ? ` <strong style="color:#ffffff;">${nombre}</strong>` : ''}, un administrador revisó tu solicitud y ya tienes acceso completo al Portal Distribuidores Chiptuning. Ya puedes iniciar sesión y comenzar a procesar tus archivos.
+                </p>
+                <div style="text-align: center; margin-top: 30px;">
+                  <a href="https://chiptuning.cl/login" style="background-color: #e11d48; color: #ffffff; padding: 13px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 12px; display: inline-block; letter-spacing: 1px;">
+                    INICIAR SESIÓN
+                  </a>
+                </div>
+              </div>
+              <div style="background-color: #02050d; padding: 15px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #1e293b;">
+                Este es un mensaje automático generado por la plataforma Chiptuning.cl
+              </div>
+            </div>
+          </div>
+        `;
+
+        await supabase.functions.invoke('swift-function', {
+          body: {
+            to: email,
+            subject: '✅ Tu cuenta en Chiptuning fue aprobada',
+            html: emailHtml
+          }
+        });
+      } catch (emailError) {
+        console.error("Error enviando correo de aprobación:", emailError);
+      }
+
       alert(`✅ Cliente aprobado.`);
       fetchClientes();
     } catch (error) {

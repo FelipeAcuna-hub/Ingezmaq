@@ -18,6 +18,7 @@ import Admin from './pages/Admin';
 import UploadFile from './pages/UploadFile';
 import Simulador from './pages/Simulador';
 import Clientes from './pages/Clientes';
+import PendingApproval from './pages/PendingApproval';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -27,7 +28,9 @@ function App() {
   // 🔒 Verifica sesión Y aprobación del admin en cada carga/cambio de sesión,
   // no solo al enviar el formulario de login. Sin esto, cualquiera con una
   // sesión guardada (aunque nunca lo hayan aprobado) entraba igual al
-  // recargar la página.
+  // recargar la página. Si no está aprobado, la sesión se mantiene (no se
+  // cierra) para poder mostrarle la pantalla de espera en vez de rebotarlo
+  // al login sin explicación.
   useEffect(() => {
     let active = true;
 
@@ -44,16 +47,7 @@ function App() {
 
         if (!active) return;
 
-        if (error || !data?.is_approved) {
-          // No aprobado (o perfil inexistente/inaccesible): no se le da acceso.
-          await supabase.auth.signOut();
-          if (active) {
-            setSession(null);
-            setIsApproved(false);
-          }
-        } else {
-          setIsApproved(true);
-        }
+        setIsApproved(!error && !!data?.is_approved);
       } else {
         setIsApproved(false);
       }
@@ -95,6 +89,7 @@ function App() {
   }
 
   const hasAccess = !!(session && session.user && isApproved);
+  const pendingApproval = !!(session && session.user && !isApproved);
 
   const ADMIN_EMAILS = [
     'sebastianzunigavaldivia@gmail.com',
@@ -117,17 +112,19 @@ function App() {
     <Router>
       <Routes>
         {/* --- RUTAS PÚBLICAS / INDEPENDIENTES (SIN LAYOUT) --- */}
+        {/* Si ya hay sesión (aprobada o pendiente), no tiene sentido mostrar
+            el formulario de login: se manda a "/", que decide qué mostrar. */}
         <Route
           path="/login"
-          element={!hasAccess ? <Login /> : <Navigate to="/" />}
+          element={(hasAccess || pendingApproval) ? <Navigate to="/" /> : <Login />}
         />
         <Route
           path="/recuperar-password"
-          element={!hasAccess ? <RecuperarPassword /> : <Navigate to="/" />}
+          element={(hasAccess || pendingApproval) ? <Navigate to="/" /> : <RecuperarPassword />}
         />
         <Route
           path="/RecuperarPassword"
-          element={!hasAccess ? <RecuperarPassword /> : <Navigate to="/" />}
+          element={(hasAccess || pendingApproval) ? <Navigate to="/" /> : <RecuperarPassword />}
         />
 
         {/* 🚀 RUTA INDEPENDIENTE: Pantalla limpia de Actualizar Contraseña */}
@@ -137,7 +134,11 @@ function App() {
         />
 
         {/* --- GRUPO DE RUTAS PROTEGIDAS CON LAYOUT --- */}
-        <Route element={hasAccess ? <Layout session={session} /> : <Navigate to="/login" />}>
+        <Route element={
+          hasAccess ? <Layout session={session} />
+            : pendingApproval ? <PendingApproval email={session?.user?.email} />
+              : <Navigate to="/login" />
+        }>
 
           <Route path="/" element={<Dashboard session={session} />} />
           <Route path="/perfil" element={<Perfil session={session} />} />
