@@ -64,6 +64,17 @@ const Login = () => {
           return;
         }
 
+        // Si "Confirm email" está activado en Supabase, signUp() NO entrega
+        // sesión hasta que la persona confirme el correo — y sin sesión, el
+        // siguiente paso (crear su fila en profiles) no tiene permiso para
+        // escribir nada (auth.uid() es null). No tiene sentido intentarlo:
+        // avisamos que revise su correo, sin mostrar un error de RLS.
+        if (signUpData?.user && !signUpData.session) {
+          alert('✅ Registro iniciado. Revisa tu correo para confirmar tu cuenta antes de iniciar sesión.');
+          setIsRegistering(false);
+          return;
+        }
+
         // 2. 🚀 UPSERT EN TABLA PROFILES: si un trigger de la base ya creó la
         // fila (Supabase auto-crea un perfil al registrarse), esto la
         // completa con los datos reales del formulario en vez de fallar por

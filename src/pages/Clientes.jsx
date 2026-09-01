@@ -104,26 +104,31 @@ const Clientes = ({ session }) => {
   };
 
   const handleEliminar = async (id) => {
-    if (window.confirm("¿Estás seguro de eliminar este registro? Esta acción no se puede deshacer.")) {
+    if (window.confirm("¿Estás seguro de eliminar este registro? Esta acción no se puede deshacer: se borrará por completo, incluyendo su acceso a la plataforma. Si vuelve a querer entrar, deberá registrarse y ser aprobado desde cero.")) {
       try {
-        // Agregamos .select() para confirmar que devolvió el objeto borrado
-        const { data, error } = await supabase
-          .from('profiles')
-          .delete()
-          .eq('id', id)
-          .select();
-  
-        if (error) throw error;
-  
-        // Si data está vacío, significa que RLS o una Foreign Key bloqué la eliminación
-        if (!data || data.length === 0) {
-          alert("⚠️ No se pudo eliminar el registro. Verifica los permisos RLS en Supabase o si el usuario tiene registros vinculados (tickets, archivos, etc.).");
-          return;
+        // El borrado real (perfil + registros vinculados + cuenta de Auth) requiere
+        // la clave de servicio, así que corre en una función de servidor, no acá.
+        const { data: { session: adminSession } } = await supabase.auth.getSession();
+        const token = adminSession?.access_token;
+        if (!token) throw new Error('No se pudo verificar tu sesión. Vuelve a iniciar sesión e intenta de nuevo.');
+
+        const res = await fetch('/.netlify/functions/delete-client', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ userId: id }),
+        });
+
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(result.error || 'No se pudo eliminar el registro.');
         }
-  
+
         // Actualizamos el estado local de inmediato
         setClientes(prevClientes => prevClientes.filter(c => c.id !== id));
-        alert("✅ Registro eliminado correctamente.");
+        alert("✅ Cliente eliminado por completo (perfil y acceso a la plataforma).");
       } catch (error) {
         alert("Error al eliminar: " + error.message);
       }
