@@ -48,11 +48,14 @@ const Login = () => {
         
         if (signUpError) throw signUpError;
 
-        // 2. 🚀 INSERCIÓN DIRECTA EN TABLA PROFILES: Asegura el guardado real de los campos
+        // 2. 🚀 UPSERT EN TABLA PROFILES: si un trigger de la base ya creó la
+        // fila (Supabase auto-crea un perfil al registrarse), esto la
+        // completa con los datos reales del formulario en vez de fallar por
+        // fila duplicada.
         if (signUpData?.user) {
           const { error: profileError } = await supabase
             .from('profiles')
-            .insert([
+            .upsert([
               {
                 id: signUpData.user.id,
                 email: email.toLowerCase(),
@@ -63,7 +66,7 @@ const Login = () => {
                 credits: 0,
                 is_approved: false
               }
-            ]);
+            ], { onConflict: 'id' });
 
           if (profileError) {
             // Si esto falla, queda una cuenta de auth sin perfil: invisible
