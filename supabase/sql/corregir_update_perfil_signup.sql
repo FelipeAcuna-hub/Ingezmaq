@@ -1,0 +1,12 @@
+-- Ejecutar en Supabase (SQL Editor).
+-- Corrige un efecto colateral de restringir_no_aprobados.sql: la política
+-- restrictiva de UPDATE en profiles bloqueaba también que un usuario recién
+-- registrado (todavía no aprobado) complete su propio perfil justo después
+-- de registrarse, porque el upsert de Login.jsx hace un UPDATE por debajo.
+--
+-- Se elimina esa política. La protección real contra manipular créditos
+-- vía la consola del navegador es un tema aparte (ya existía antes de hoy,
+-- para aprobados y no aprobados por igual) — no es lo que se buscaba
+-- resolver con esa política, así que no vale la pena bloquear el registro
+-- por eso.
+drop policy if exists "Restrictiva: solo aprobados modifican perfiles" on public.profiles;

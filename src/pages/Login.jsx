@@ -46,7 +46,23 @@ const Login = () => {
           }
         });
         
-        if (signUpError) throw signUpError;
+        if (signUpError) {
+          if (/already registered|already exists|user already/i.test(signUpError.message || '')) {
+            alert('⚠️ Ese correo ya se encuentra registrado. Por favor inicia sesión.');
+            setIsRegistering(false);
+            return;
+          }
+          throw signUpError;
+        }
+
+        // Cuando "Confirm email" está activado, Supabase no devuelve un error
+        // explícito para un correo ya registrado (para no filtrar qué correos
+        // existen) — en vez de eso, "identities" viene vacío.
+        if (signUpData?.user && signUpData.user.identities?.length === 0) {
+          alert('⚠️ Ese correo ya se encuentra registrado. Por favor inicia sesión.');
+          setIsRegistering(false);
+          return;
+        }
 
         // 2. 🚀 UPSERT EN TABLA PROFILES: si un trigger de la base ya creó la
         // fila (Supabase auto-crea un perfil al registrarse), esto la
