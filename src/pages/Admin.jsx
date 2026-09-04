@@ -106,6 +106,7 @@ const Admin = ({ session }) => {
   const [movimientos, setMovimientos] = useState([]);
   const [exportandoId, setExportandoId] = useState(null);
   const [exportandoTodo, setExportandoTodo] = useState(false);
+  const [exportandoInformeArchivos, setExportandoInformeArchivos] = useState(false);
   const [descuentoEdit, setDescuentoEdit] = useState('0');
   const [guardandoDescuento, setGuardandoDescuento] = useState(false);
   const [searchEspeciales, setSearchEspeciales] = useState('');
@@ -448,6 +449,83 @@ const Admin = ({ session }) => {
     }
   };
 
+  // Mismo informe que el botón "Descargar info archivos" de la sección Archivos:
+  // toda la info de cada solicitud (sin los archivos en sí), disponible también acá.
+  const formatearFechaArchivo = (valor) => valor ? new Date(valor).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : '';
+
+  const handleExportarInformeArchivos = async () => {
+    setExportandoInformeArchivos(true);
+    try {
+      const XLSX = await import('xlsx');
+
+      const { data: archivos, error } = await supabase
+        .from('archivos')
+        .select(`
+          *,
+          profiles:user_id (
+            company,
+            email,
+            cliente_especial
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const filas = (archivos || []).map(a => {
+        const dt = a.detalles_tecnicos || {};
+        return {
+          'N° Orden': a.numero_orden || '',
+          'ID Solicitud': a.id,
+          'Empresa': a.profiles?.company || 'PARTICULAR',
+          'Correo cliente': a.profiles?.email || '',
+          'Cliente especial': a.profiles?.cliente_especial ? 'Sí' : 'No',
+          'Patente': a.patente || '',
+          'Marca / Modelo': a.marca_modelo || '',
+          'Año': dt.anio || '',
+          'Motor': dt.motor || '',
+          'HP': dt.hp || '',
+          'Combustible': dt.combustible || '',
+          'ECU': dt.ecu || '',
+          'Tipo de módulo': dt.tipo_modulo || '',
+          'Servicio solicitado': dt.servicios_solicitados || '',
+          'Programa Modificador': a.programa_modificador || '',
+          'Centralita / ECU / TCU': a.centralita_ecu_tcu || '',
+          'Créditos (costo)': dt.costo_creditos ?? '',
+          'Comentarios del cliente': dt.comentarios || '',
+          'Estado actual': a.estado || '',
+          'Fecha y hora de solicitud': formatearFechaArchivo(a.created_at),
+          'Fecha y hora "en gestión"': formatearFechaArchivo(a.en_gestion_at),
+          'Admin que puso "en gestión"': a.en_gestion_by || '',
+          'Fecha y hora envío MOD': formatearFechaArchivo(a.mod_uploaded_at),
+          'Admin que subió MOD': a.mod_uploaded_by || '',
+          'Fecha y hora envío V2': formatearFechaArchivo(a.mod_extra_uploaded_at),
+          'Admin que subió V2': a.mod_extra_uploaded_by || '',
+          'Fecha y hora envío V3': formatearFechaArchivo(a.mod_v3_uploaded_at),
+          'Admin que subió V3': a.mod_v3_uploaded_by || '',
+          'Notas de instalación (mensaje técnico)': a.notas_instalacion || '',
+          'Anexos adicionales del cliente': dt.archivos_adicionales?.length || 0
+        };
+      });
+
+      if (filas.length === 0) {
+        filas.push({ 'N° Orden': '', 'ID Solicitud': 'Sin solicitudes registradas' });
+      }
+
+      const wb = XLSX.utils.book_new();
+      const hoja = XLSX.utils.json_to_sheet(filas);
+      hoja['!cols'] = Object.keys(filas[0]).map(() => ({ wch: 22 }));
+      XLSX.utils.book_append_sheet(wb, hoja, 'Solicitudes');
+
+      const fechaHoy = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `informe_archivos_${fechaHoy}.xlsx`);
+    } catch (error) {
+      alert('Error al generar el informe: ' + error.message);
+    } finally {
+      setExportandoInformeArchivos(false);
+    }
+  };
+
   const cambiarEstadoInmediato = async (nuevoEstado) => {
     const estadoAnterior = config?.is_online;
     setConfig(prev => ({ ...prev, is_online: nuevoEstado }));
@@ -695,7 +773,17 @@ const Admin = ({ session }) => {
           style={{ ...styles.refreshBtn(exportandoTodo), marginRight: '10px' }}
         >
           {exportandoTodo ? <Icon.Refresh className="admin-spin" /> : <Icon.Download />}
-          {exportandoTodo ? 'Generando...' : 'Descargar todo (Excel)'}
+          {exportandoTodo ? 'Generando...' : 'Descargar todo clientes'}
+        </button>
+        <button
+          className="admin-refresh"
+          onClick={handleExportarInformeArchivos}
+          disabled={exportandoInformeArchivos}
+          title="Descarga un Excel con toda la información de cada solicitud de archivo (sin los archivos)"
+          style={{ ...styles.refreshBtn(exportandoInformeArchivos), marginRight: '10px' }}
+        >
+          {exportandoInformeArchivos ? <Icon.Refresh className="admin-spin" /> : <Icon.Download />}
+          {exportandoInformeArchivos ? 'Generando...' : 'Descargar info archivos'}
         </button>
         <button
           className="admin-refresh"

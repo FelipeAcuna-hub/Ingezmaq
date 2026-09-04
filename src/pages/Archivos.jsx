@@ -6,11 +6,15 @@ const Archivos = ({ session }) => {
   const [archivos, setArchivos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [archivoDetalle, setArchivoDetalle] = useState(null);
+  const [archivoSeguimiento, setArchivoSeguimiento] = useState(null);
+  const [formSeguimiento, setFormSeguimiento] = useState({ programa_modificador: '', centralita_ecu_tcu: '' });
+  const [guardandoSeguimiento, setGuardandoSeguimiento] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina] = useState(8);
   const [statusFilter, setStatusFilter] = useState('todos');
+  const [exportandoInforme, setExportandoInforme] = useState(false);
 
   const { darkMode } = useOutletContext();
 
@@ -60,6 +64,71 @@ const Archivos = ({ session }) => {
   useEffect(() => {
     fetchArchivos();
   }, [session, isAdmin]);
+
+  // --- INFORME DESCARGABLE (SOLO ADMIN): toda la info de cada solicitud, sin los archivos en sí ---
+  const formatearFecha = (valor) => valor ? new Date(valor).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : '';
+
+  const handleExportarInforme = async () => {
+    setExportandoInforme(true);
+    try {
+      const XLSX = await import('xlsx');
+
+      const filas = archivos
+        .slice()
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .map(a => {
+          const dt = a.detalles_tecnicos || {};
+          return {
+            'N° Orden': a.numero_orden || '',
+            'ID Solicitud': a.id,
+            'Empresa': a.profiles?.company || 'PARTICULAR',
+            'Correo cliente': a.profiles?.email || '',
+            'Cliente especial': a.profiles?.cliente_especial ? 'Sí' : 'No',
+            'Patente': a.patente || '',
+            'Marca / Modelo': a.marca_modelo || '',
+            'Año': dt.anio || '',
+            'Motor': dt.motor || '',
+            'HP': dt.hp || '',
+            'Combustible': dt.combustible || '',
+            'ECU': dt.ecu || '',
+            'Tipo de módulo': dt.tipo_modulo || '',
+            'Servicio solicitado': dt.servicios_solicitados || '',
+            'Programa Modificador': a.programa_modificador || '',
+            'Centralita / ECU / TCU': a.centralita_ecu_tcu || '',
+            'Créditos (costo)': dt.costo_creditos ?? '',
+            'Comentarios del cliente': dt.comentarios || '',
+            'Estado actual': a.estado || '',
+            'Fecha y hora de solicitud': formatearFecha(a.created_at),
+            'Fecha y hora "en gestión"': formatearFecha(a.en_gestion_at),
+            'Admin que puso "en gestión"': a.en_gestion_by || '',
+            'Fecha y hora envío MOD': formatearFecha(a.mod_uploaded_at),
+            'Admin que subió MOD': a.mod_uploaded_by || '',
+            'Fecha y hora envío V2': formatearFecha(a.mod_extra_uploaded_at),
+            'Admin que subió V2': a.mod_extra_uploaded_by || '',
+            'Fecha y hora envío V3': formatearFecha(a.mod_v3_uploaded_at),
+            'Admin que subió V3': a.mod_v3_uploaded_by || '',
+            'Notas de instalación (mensaje técnico)': a.notas_instalacion || '',
+            'Anexos adicionales del cliente': dt.archivos_adicionales?.length || 0
+          };
+        });
+
+      if (filas.length === 0) {
+        filas.push({ 'N° Orden': '', 'ID Solicitud': 'Sin solicitudes registradas' });
+      }
+
+      const wb = XLSX.utils.book_new();
+      const hoja = XLSX.utils.json_to_sheet(filas);
+      hoja['!cols'] = Object.keys(filas[0]).map(() => ({ wch: 22 }));
+      XLSX.utils.book_append_sheet(wb, hoja, 'Solicitudes');
+
+      const fechaHoy = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `informe_archivos_${fechaHoy}.xlsx`);
+    } catch (error) {
+      alert('Error al generar el informe: ' + error.message);
+    } finally {
+      setExportandoInforme(false);
+    }
+  };
 
   const handleForceDownload = async (url) => {
     if (!url) return;
@@ -169,15 +238,19 @@ const Archivos = ({ session }) => {
 
       // 1. Mapeamos la columna correcta según el archivo que se está subiendo (MOD, V2 o V3)
       let campoFecha = 'mod_uploaded_at';
+      let campoAdmin = 'mod_uploaded_by';
       if (campoDestino === 'mod_file_extra_url') {
         campoFecha = 'mod_extra_uploaded_at';
+        campoAdmin = 'mod_extra_uploaded_by';
       } else if (campoDestino === 'mod_v3_file_url') {
         campoFecha = 'mod_v3_uploaded_at'; // 👈 Se asigna la fecha correspondiente a V3
+        campoAdmin = 'mod_v3_uploaded_by';
       }
 
       const updateData = {
         [campoDestino]: publicUrl,
         [campoFecha]: new Date().toISOString(), // 👈 Registramos la hora y fecha exacta
+        [campoAdmin]: session?.user?.email || null, // 👈 Qué admin subió este archivo
         estado: 'completado'
       };
 
@@ -202,6 +275,39 @@ const Archivos = ({ session }) => {
     }
   };
 
+  // --- SEGUIMIENTO TÉCNICO (Programa Modificador / Centralita-ECU-TCU) ---
+  const abrirSeguimiento = (archivo) => {
+    setFormSeguimiento({
+      programa_modificador: archivo.programa_modificador || '',
+      centralita_ecu_tcu: archivo.centralita_ecu_tcu || ''
+    });
+    setArchivoSeguimiento(archivo);
+  };
+
+  const handleGuardarSeguimiento = async () => {
+    if (!archivoSeguimiento) return;
+    try {
+      setGuardandoSeguimiento(true);
+      const { error } = await supabase
+        .from('archivos')
+        .update({
+          programa_modificador: formSeguimiento.programa_modificador,
+          centralita_ecu_tcu: formSeguimiento.centralita_ecu_tcu
+        })
+        .eq('id', archivoSeguimiento.id);
+
+      if (error) throw error;
+
+      setArchivos(prev => prev.map(a => a.id === archivoSeguimiento.id ? { ...a, ...formSeguimiento } : a));
+      alert('✅ Seguimiento guardado.');
+      setArchivoSeguimiento(null);
+    } catch (error) {
+      alert('Error al guardar seguimiento: ' + error.message);
+    } finally {
+      setGuardandoSeguimiento(false);
+    }
+  };
+
   const handleGuardarNota = async (archivoId, notaActual) => {
     if (!isAdmin) return;
 
@@ -220,9 +326,16 @@ const Archivos = ({ session }) => {
 
   const handleStatusChange = async (archivoId, nuevoEstado, clienteEmail, patente) => {
     try {
+      const updateData = { estado: nuevoEstado };
+      // Queda registrado quién y cuándo pasó la solicitud a "en gestión", para el informe.
+      if (nuevoEstado === 'en gestión') {
+        updateData.en_gestion_at = new Date().toISOString();
+        updateData.en_gestion_by = session?.user?.email || null;
+      }
+
       const { error } = await supabase
         .from('archivos')
-        .update({ estado: nuevoEstado })
+        .update(updateData)
         .eq('id', archivoId);
 
       if (error) throw error;
@@ -259,7 +372,7 @@ const Archivos = ({ session }) => {
         });
       }
 
-      setArchivos(prev => prev.map(a => a.id === archivoId ? { ...a, estado: nuevoEstado } : a));
+      setArchivos(prev => prev.map(a => a.id === archivoId ? { ...a, ...updateData } : a));
     } catch (error) {
       console.error("Error:", error.message);
     }
@@ -413,8 +526,28 @@ const Archivos = ({ session }) => {
     <div style={styles.mainContent}>
       <div style={styles.tableCard}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ backgroundColor: '#2563eb', color: 'white', padding: '5px 12px', fontSize: '10px', fontWeight: 'bold' }}>
-            {isAdmin ? "MODO ADMINISTRADOR" : "PORTAL OFICIAL"}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ backgroundColor: '#2563eb', color: 'white', padding: '5px 12px', fontSize: '10px', fontWeight: 'bold' }}>
+              {isAdmin ? "MODO ADMINISTRADOR" : "PORTAL OFICIAL"}
+            </div>
+            {isAdmin && (
+              <button
+                onClick={handleExportarInforme}
+                disabled={exportandoInforme}
+                title="Descarga un Excel con toda la información de cada solicitud (sin los archivos)"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  backgroundColor: darkMode ? '#1e293b' : '#fff',
+                  color: darkMode ? '#ffffff' : '#000',
+                  border: darkMode ? '1px solid #334155' : '1px solid #ddd',
+                  padding: '6px 12px', fontSize: '10px', fontWeight: 'bold',
+                  borderRadius: '4px', cursor: exportandoInforme ? 'default' : 'pointer',
+                  opacity: exportandoInforme ? 0.6 : 1, textTransform: 'uppercase'
+                }}
+              >
+                📊 {exportandoInforme ? 'Generando...' : 'Descargar info archivos'}
+              </button>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -511,7 +644,10 @@ const Archivos = ({ session }) => {
                   <td style={styles.td}>{archivo.patente}</td>
                   <td style={styles.td}>{archivo.marca_modelo}</td>
                   <td style={styles.td}>
-                    <button onClick={() => setArchivoDetalle(archivo)} style={{ backgroundColor: darkMode ? '#2563eb' : '#000', color: '#fff', border: 'none', padding: '4px 8px', fontSize: '9px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '2px' }}>DETALLES</button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: '90px' }}>
+                      <button onClick={() => setArchivoDetalle(archivo)} style={{ backgroundColor: darkMode ? '#2563eb' : '#000', color: '#fff', border: 'none', padding: '4px 8px', fontSize: '9px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '2px' }}>DETALLES</button>
+                      <button onClick={() => abrirSeguimiento(archivo)} style={{ backgroundColor: (archivo.programa_modificador || archivo.centralita_ecu_tcu) ? '#7c3aed' : (darkMode ? '#334155' : '#e5e7eb'), color: (archivo.programa_modificador || archivo.centralita_ecu_tcu) ? '#fff' : (darkMode ? '#cbd5e1' : '#333'), border: 'none', padding: '4px 8px', fontSize: '9px', fontWeight: 'bold', cursor: 'pointer', borderRadius: '2px' }}>SEGUIMIENTO</button>
+                    </div>
                   </td>
                   <td style={styles.td}>
                     {isAdmin ? (
@@ -551,6 +687,9 @@ const Archivos = ({ session }) => {
                               📅 {new Date(archivo.mod_uploaded_at).toLocaleDateString('es-CL')} 🕒 {new Date(archivo.mod_uploaded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                             </div>
                           )}
+                          {isAdmin && archivo.mod_uploaded_by && (
+                            <div style={styles.timeTag}>👤 {archivo.mod_uploaded_by}</div>
+                          )}
                         </div>
                       ) : isAdmin && (
                         <label style={{ backgroundColor: '#000', color: '#22c55e', padding: '5px', fontSize: '9px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #22c55e', textAlign: 'center', fontWeight: 'bold' }}>
@@ -568,6 +707,9 @@ const Archivos = ({ session }) => {
                               📅 {new Date(archivo.mod_extra_uploaded_at).toLocaleDateString('es-CL')} 🕒 {new Date(archivo.mod_extra_uploaded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                             </div>
                           )}
+                          {isAdmin && archivo.mod_extra_uploaded_by && (
+                            <div style={styles.timeTag}>👤 {archivo.mod_extra_uploaded_by}</div>
+                          )}
                         </div>
                       ) : isAdmin && (
                         <label style={{ backgroundColor: '#111', color: '#10b981', padding: '5px', fontSize: '9px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #10b981', textAlign: 'center', fontWeight: 'bold' }}>
@@ -584,6 +726,9 @@ const Archivos = ({ session }) => {
                             <div style={styles.timeTag}>
                               📅 {new Date(archivo.mod_v3_uploaded_at).toLocaleDateString('es-CL')} 🕒 {new Date(archivo.mod_v3_uploaded_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                             </div>
+                          )}
+                          {isAdmin && archivo.mod_v3_uploaded_by && (
+                            <div style={styles.timeTag}>👤 {archivo.mod_v3_uploaded_by}</div>
                           )}
                         </div>
                       ) : isAdmin && (
@@ -705,6 +850,70 @@ const Archivos = ({ session }) => {
             </div>
             <div style={{ padding: '15px', textAlign: 'right', borderTop: darkMode ? '1px solid #334155' : 'none' }}>
               <button onClick={() => setArchivoDetalle(null)} style={{ backgroundColor: '#000', color: 'white', border: 'none', padding: '8px 25px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', borderRadius: '2px' }}>CLOSE</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {archivoSeguimiento && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <div style={{ ...styles.modalHeader, color: '#a78bfa', borderBottom: '2px solid #7c3aed' }}>
+              <h3 style={{ margin: 0, fontSize: '13px', color: '#ffffff' }}>SEGUIMIENTO — ORDEN N° {archivoSeguimiento.numero_orden} - {archivoSeguimiento.patente}</h3>
+              <button onClick={() => setArchivoSeguimiento(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={styles.modalBody}>
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: darkMode ? '#94a3b8' : '#666', marginBottom: '6px' }}>Programa Modificador</label>
+                {isAdmin ? (
+                  <input
+                    type="text"
+                    value={formSeguimiento.programa_modificador}
+                    onChange={(e) => setFormSeguimiento(f => ({ ...f, programa_modificador: e.target.value }))}
+                    placeholder="Ej: WinOLS, KESS3, PCMFlash..."
+                    style={{
+                      width: '100%', boxSizing: 'border-box', padding: '10px',
+                      backgroundColor: darkMode ? '#0f172a' : '#fff',
+                      border: darkMode ? '1px solid #334155' : '1px solid #ddd',
+                      borderRadius: '4px', color: darkMode ? '#ffffff' : '#000', fontSize: '13px', outline: 'none'
+                    }}
+                  />
+                ) : (
+                  <p style={{ margin: 0, fontSize: '13px', color: darkMode ? '#cbd5e1' : '#444' }}>
+                    {archivoSeguimiento.programa_modificador || 'Sin información registrada.'}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: darkMode ? '#94a3b8' : '#666', marginBottom: '6px' }}>Centralita / ECU / TCU</label>
+                {isAdmin ? (
+                  <input
+                    type="text"
+                    value={formSeguimiento.centralita_ecu_tcu}
+                    onChange={(e) => setFormSeguimiento(f => ({ ...f, centralita_ecu_tcu: e.target.value }))}
+                    placeholder="Ej: Bosch EDC17C64"
+                    style={{
+                      width: '100%', boxSizing: 'border-box', padding: '10px',
+                      backgroundColor: darkMode ? '#0f172a' : '#fff',
+                      border: darkMode ? '1px solid #334155' : '1px solid #ddd',
+                      borderRadius: '4px', color: darkMode ? '#ffffff' : '#000', fontSize: '13px', outline: 'none'
+                    }}
+                  />
+                ) : (
+                  <p style={{ margin: 0, fontSize: '13px', color: darkMode ? '#cbd5e1' : '#444' }}>
+                    {archivoSeguimiento.centralita_ecu_tcu || 'Sin información registrada.'}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div style={{ padding: '15px', display: 'flex', justifyContent: 'flex-end', gap: '10px', borderTop: darkMode ? '1px solid #334155' : 'none' }}>
+              <button onClick={() => setArchivoSeguimiento(null)} style={{ backgroundColor: darkMode ? '#334155' : '#e5e7eb', color: darkMode ? '#fff' : '#333', border: 'none', padding: '8px 20px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', borderRadius: '2px' }}>CERRAR</button>
+              {isAdmin && (
+                <button onClick={handleGuardarSeguimiento} disabled={guardandoSeguimiento} style={{ backgroundColor: '#7c3aed', color: 'white', border: 'none', padding: '8px 25px', cursor: guardandoSeguimiento ? 'default' : 'pointer', opacity: guardandoSeguimiento ? 0.6 : 1, fontSize: '11px', fontWeight: 'bold', borderRadius: '2px' }}>
+                  {guardandoSeguimiento ? 'GUARDANDO...' : 'GUARDAR'}
+                </button>
+              )}
             </div>
           </div>
         </div>
