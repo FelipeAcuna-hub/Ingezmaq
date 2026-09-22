@@ -97,6 +97,15 @@ const Historial = ({ session }) => {
   const totalPagCanjes = Math.ceil(canjes.length / itemsPorPagina);
   const canjesPaginados = canjes.slice((pagCanjes - 1) * itemsPorPagina, pagCanjes * itemsPorPagina);
 
+  // Canjes viejos no tienen el campo "servicio" (se agregó después), así que
+  // para esos se intenta sacar del texto libre de "descripcion" (formato
+  // "Canje: MARCA MODELO (patente) - SERVICIO").
+  const obtenerServicio = (c) => {
+    if (c.servicio) return c.servicio;
+    const partes = c.descripcion?.split(' - ');
+    return partes && partes.length > 1 ? partes[partes.length - 1] : '-';
+  };
+
   const tokens = {
     bg: darkMode ? '#0f172a' : '#f6f6f9',               
     surface: darkMode ? '#1e293b' : '#ffffff',          
@@ -567,6 +576,7 @@ const Historial = ({ session }) => {
               <th style={styles.th}>Fecha</th>
               {isAdmin && <th style={styles.th}>Empresa / Cliente</th>}
               <th style={styles.th}>Detalle</th>
+              <th style={styles.th}>Servicio</th>
               <th style={{ ...styles.th, textAlign: 'right' }}>Cantidad</th>
             </tr>
           </thead>
@@ -603,6 +613,11 @@ const Historial = ({ session }) => {
                     )}
 
                     <td style={{ ...styles.td, color: tokens.inkSoft }}>{c.descripcion}</td>
+                    <td style={styles.td}>
+                      <span style={styles.badge(tokens.brand, tokens.brandSoft, tokens.brandLine)}>
+                        {obtenerServicio(c)}
+                      </span>
+                    </td>
                     <td style={styles.montoNegativo}>
                       -{c.cantidad.toLocaleString('es-CL')}
                     </td>

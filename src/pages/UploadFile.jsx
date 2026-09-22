@@ -323,6 +323,7 @@ const UploadFile = ({ session }) => {
             tipo: 'canje',
             cantidad: totalCreditos,
             descripcion: `Canje: ${formData.marca} ${formData.modelo} (${formData.patente}) - ${servicioSel.name}`,
+            servicio: servicioSel.name,
             fecha: new Date().toISOString(),
           }
         ]);
