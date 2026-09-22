@@ -276,40 +276,62 @@ const UploadFile = ({ session }) => {
         if (url) archivosAdicionales.push({ nombre: filesExtra[i].name, url });
       }
 
+      // Primero se crea la solicitud (lo único que de verdad le importa al
+      // cliente y al taller). Recién si esto funciona se cobran los créditos
+      // y se registra el canje — así, si algo falla más adelante, no queda
+      // un cliente con créditos descontados y ninguna solicitud que gestionar
+      // (como pasó con un pedido que se perdió por un corte justo después de
+      // subir los archivos).
+      const { data: archivoCreado, error: dbError } = await supabase
+        .from('archivos')
+        .insert({
+          user_id: session.user.id,
+          patente: formData.patente,
+          marca_modelo: `${formData.marca} ${formData.modelo}`.trim(),
+          estado: 'pendiente',
+          file_url_id: urlId,
+          file_url_mapa: urlMapa,
+          file_url_password: urlPass,
+          detalles_tecnicos: {
+            ...formData,
+            servicios_solicitados: servicioSel.name,
+            costo_creditos: totalCreditos,
+            archivos_adicionales: archivosAdicionales
+          }
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
       const { error: updateCreditsError } = await supabase
         .from('profiles')
         .update({ credits: perfil.credits - totalCreditos })
         .eq('id', session.user.id);
 
-      if (updateCreditsError) throw updateCreditsError;
+      if (updateCreditsError) {
+        // No se pudo cobrar: deshacemos la solicitud para no dejar un
+        // archivo activo sin haber pagado por él, y avisamos para reintentar.
+        await supabase.from('archivos').delete().eq('id', archivoCreado.id);
+        throw updateCreditsError;
+      }
 
-      await supabase.from('historial_movimientos').insert([
-        {
-          perfil_id: session.user.id,
-          tipo: 'canje',
-          cantidad: totalCreditos,
-          descripcion: `Canje: ${formData.marca} ${formData.modelo} (${formData.patente}) - ${servicioSel.name}`,
-          fecha: new Date().toISOString(),
-        }
-      ]);
-
-      const { error: dbError } = await supabase.from('archivos').insert({
-        user_id: session.user.id,
-        patente: formData.patente,
-        marca_modelo: `${formData.marca} ${formData.modelo}`.trim(),
-        estado: 'pendiente',
-        file_url_id: urlId,
-        file_url_mapa: urlMapa,
-        file_url_password: urlPass,
-        detalles_tecnicos: {
-          ...formData,
-          servicios_solicitados: servicioSel.name,
-          costo_creditos: totalCreditos,
-          archivos_adicionales: archivosAdicionales
-        }
-      });
-
-      if (dbError) throw dbError;
+      try {
+        await supabase.from('historial_movimientos').insert([
+          {
+            perfil_id: session.user.id,
+            tipo: 'canje',
+            cantidad: totalCreditos,
+            descripcion: `Canje: ${formData.marca} ${formData.modelo} (${formData.patente}) - ${servicioSel.name}`,
+            fecha: new Date().toISOString(),
+          }
+        ]);
+      } catch (movError) {
+        // La solicitud ya quedó creada y los créditos ya se cobraron; esto es
+        // solo el registro para el historial, no vale la pena hacer fallar
+        // todo el envío por esto.
+        console.error('No se pudo registrar el movimiento de canje:', movError);
+      }
 
       try {
         const archivosLista = [];

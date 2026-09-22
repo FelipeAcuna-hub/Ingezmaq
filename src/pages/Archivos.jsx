@@ -561,8 +561,8 @@ const Archivos = ({ session }) => {
               <span style={{ fontSize: '12px', marginRight: '8px', color: darkMode ? '#94a3b8' : '#333' }}>🔍</span>
               <input
                 type="text"
-                placeholder="Buscar..."
-                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '12px', width: '150px', color: darkMode ? '#ffffff' : '#000000' }}
+                placeholder="Buscar por patente, N° orden o correo..."
+                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '12px', width: '190px', color: darkMode ? '#ffffff' : '#000000' }}
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }}
               />
