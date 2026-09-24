@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import {
@@ -13,18 +13,22 @@ import {
   ChevronRight,
   Clock,
   PlusCircle,
-  CreditCard
+  CreditCard,
+  Search
 } from 'lucide-react';
 
 const Historial = ({ session }) => {
   const [movimientos, setMovimientos] = useState([]);
   const [canjes, setCanjes] = useState([]);
+  const [archivos, setArchivos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const { darkMode } = useOutletContext(); 
 
   const [pagMovimientos, setPagMovimientos] = useState(1);
   const [pagCanjes, setPagCanjes] = useState(1);
+  const [searchMovimientos, setSearchMovimientos] = useState('');
+  const [searchCanjes, setSearchCanjes] = useState('');
   const itemsPorPagina = 4;
 
   const ADMIN_EMAILS = [
@@ -49,7 +53,7 @@ const Historial = ({ session }) => {
       // 1. CONSULTA A TABLA 'movimientos'
       let queryMovs = supabase
         .from('movimientos')
-        .select('*, profiles(company, email)') 
+        .select('*, profiles(company, email, credits)')
         .order('created_at', { ascending: false });
 
       if (!isAdmin) {
@@ -59,14 +63,26 @@ const Historial = ({ session }) => {
       // 2. CONSULTA A TABLA 'historial_movimientos'
       let queryCanjes = supabase
         .from('historial_movimientos')
-        .select('*, profiles(company, email)')
+        .select('*, profiles(company, email, credits)')
         .order('fecha', { ascending: false });
 
       if (!isAdmin) {
         queryCanjes = queryCanjes.eq('perfil_id', session?.user?.id);
       }
 
-      const [resMovs, resCanjes] = await Promise.all([queryMovs, queryCanjes]);
+      // 3. CONSULTA A TABLA 'archivos': muchos canjes vienen de fuera de esta
+      // app (no traen el campo "servicio" propio) y no tienen el detalle en
+      // su descripción, pero el servicio SÍ quedó guardado en la solicitud
+      // de archivos correspondiente (detalles_tecnicos.servicios_solicitados).
+      let queryArchivos = supabase
+        .from('archivos')
+        .select('user_id, patente, created_at, detalles_tecnicos');
+
+      if (!isAdmin) {
+        queryArchivos = queryArchivos.eq('user_id', session?.user?.id);
+      }
+
+      const [resMovs, resCanjes, resArchivos] = await Promise.all([queryMovs, queryCanjes, queryArchivos]);
 
       if (resMovs.error) {
         console.error("Error en tabla 'movimientos':", resMovs.error);
@@ -74,9 +90,13 @@ const Historial = ({ session }) => {
       if (resCanjes.error) {
         console.error("Error en tabla 'historial_movimientos':", resCanjes.error);
       }
+      if (resArchivos.error) {
+        console.error("Error en tabla 'archivos':", resArchivos.error);
+      }
 
       setMovimientos(resMovs.data || []);
       setCanjes(resCanjes.data || []);
+      setArchivos(resArchivos.data || []);
 
     } catch (error) {
       console.error("Error crítico cargando historiales:", error.message);
@@ -91,20 +111,128 @@ const Historial = ({ session }) => {
     }
   }, [session?.user?.id, fetchDatos]);
 
-  const totalPagMovs = Math.ceil(movimientos.length / itemsPorPagina);
-  const movsPaginados = movimientos.slice((pagMovimientos - 1) * itemsPorPagina, pagMovimientos * itemsPorPagina);
+  // Muchos canjes no tienen el campo "servicio" propio ni lo traen en el
+  // texto de "descripcion" (varios se generan por fuera de esta app). Como
+  // respaldo, se busca la solicitud en "archivos" del mismo cliente y misma
+  // patente más cercana en el tiempo, y se usa el servicio guardado ahí
+  // (el mismo que aparece en "Services" al ver el detalle del archivo).
+  const serviciosPorCanje = useMemo(() => {
+    const mapa = {};
+    for (const c of canjes) {
+      if (c.servicio) { mapa[c.id] = c.servicio; continue; }
 
-  const totalPagCanjes = Math.ceil(canjes.length / itemsPorPagina);
-  const canjesPaginados = canjes.slice((pagCanjes - 1) * itemsPorPagina, pagCanjes * itemsPorPagina);
+      const partesDescripcion = c.descripcion?.split(' - ');
+      if (partesDescripcion && partesDescripcion.length > 1) {
+        mapa[c.id] = partesDescripcion[partesDescripcion.length - 1];
+        continue;
+      }
 
-  // Canjes viejos no tienen el campo "servicio" (se agregó después), así que
-  // para esos se intenta sacar del texto libre de "descripcion" (formato
-  // "Canje: MARCA MODELO (patente) - SERVICIO").
-  const obtenerServicio = (c) => {
-    if (c.servicio) return c.servicio;
-    const partes = c.descripcion?.split(' - ');
-    return partes && partes.length > 1 ? partes[partes.length - 1] : '-';
+      const patenteMatch = c.descripcion?.match(/\(([^)]+)\)/);
+      const patente = patenteMatch ? patenteMatch[1] : null;
+      const fechaCanje = new Date(c.fecha).getTime();
+
+      const candidatos = archivos.filter(a => a.user_id === c.perfil_id && (!patente || a.patente === patente));
+      let mejor = null;
+      let mejorDiferencia = Infinity;
+      for (const a of candidatos) {
+        const diferencia = Math.abs(new Date(a.created_at).getTime() - fechaCanje);
+        if (diferencia < mejorDiferencia) {
+          mejorDiferencia = diferencia;
+          mejor = a;
+        }
+      }
+
+      mapa[c.id] = mejor?.detalles_tecnicos?.servicios_solicitados || '-';
+    }
+    return mapa;
+  }, [canjes, archivos]);
+
+  const obtenerServicio = (c) => serviciosPorCanje[c.id] || '-';
+
+  // Buscador: por empresa, correo, detalle/descripción, quién lo realizó,
+  // servicio, o la fecha (escrita como "24-09", "24/09/2026", "2026-09-24", etc).
+  const coincideTexto = (texto, term) => (texto || '').toLowerCase().includes(term);
+  const coincideFecha = (fechaIso, term) => {
+    const d = new Date(fechaIso);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = String(d.getFullYear());
+    const variantes = [
+      `${dd}-${mm}-${yyyy}`, `${dd}/${mm}/${yyyy}`,
+      `${yyyy}-${mm}-${dd}`, `${dd}-${mm}`, `${dd}/${mm}`
+    ];
+    return variantes.some(v => v.includes(term));
   };
+
+  const movimientosFiltrados = useMemo(() => {
+    const term = searchMovimientos.trim().toLowerCase();
+    if (!term) return movimientos;
+    return movimientos.filter(m =>
+      coincideTexto(m.profiles?.company, term) ||
+      coincideTexto(m.profiles?.email, term) ||
+      coincideTexto(m.descripcion, term) ||
+      coincideTexto(m.admin_email || 'Sistema', term) ||
+      coincideFecha(m.created_at, term)
+    );
+  }, [movimientos, searchMovimientos]);
+
+  const canjesFiltrados = useMemo(() => {
+    const term = searchCanjes.trim().toLowerCase();
+    if (!term) return canjes;
+    return canjes.filter(c =>
+      coincideTexto(c.profiles?.company, term) ||
+      coincideTexto(c.profiles?.email, term) ||
+      coincideTexto(c.descripcion, term) ||
+      coincideTexto(obtenerServicio(c), term) ||
+      coincideFecha(c.fecha, term)
+    );
+  }, [canjes, searchCanjes, serviciosPorCanje]);
+
+  const totalPagMovs = Math.ceil(movimientosFiltrados.length / itemsPorPagina);
+  const movsPaginados = movimientosFiltrados.slice((pagMovimientos - 1) * itemsPorPagina, pagMovimientos * itemsPorPagina);
+
+  const totalPagCanjes = Math.ceil(canjesFiltrados.length / itemsPorPagina);
+  const canjesPaginados = canjesFiltrados.slice((pagCanjes - 1) * itemsPorPagina, pagCanjes * itemsPorPagina);
+
+  // Saldo antes y después de CADA recarga/canje: se arma una sola línea de
+  // tiempo por cliente (recargas + canjes mezclados), y se calcula hacia
+  // atrás partiendo del saldo real actual (profiles.credits) — así el evento
+  // más reciente siempre calza exacto con lo que el cliente tiene hoy, sin
+  // depender de que cada canje antiguo haya descontado bien.
+  const saldoPorEvento = useMemo(() => {
+    const eventos = [
+      ...movimientos.map(m => ({
+        key: `mov-${m.id}`,
+        userId: m.user_id,
+        fecha: new Date(m.created_at).getTime(),
+        delta: m.tipo === 'gasto' ? -m.cantidad : m.cantidad,
+        credits: m.profiles?.credits
+      })),
+      ...canjes.map(c => ({
+        key: `canje-${c.id}`,
+        userId: c.perfil_id,
+        fecha: new Date(c.fecha).getTime(),
+        delta: -c.cantidad,
+        credits: c.profiles?.credits
+      }))
+    ];
+
+    const porUsuario = {};
+    for (const e of eventos) {
+      (porUsuario[e.userId] ||= []).push(e);
+    }
+
+    const resultado = {};
+    for (const userId of Object.keys(porUsuario)) {
+      const lista = porUsuario[userId].slice().sort((a, b) => b.fecha - a.fecha);
+      let saldo = lista[0]?.credits ?? 0;
+      for (const e of lista) {
+        resultado[e.key] = { despues: saldo, antes: saldo - e.delta };
+        saldo -= e.delta;
+      }
+    }
+    return resultado;
+  }, [movimientos, canjes]);
 
   const tokens = {
     bg: darkMode ? '#0f172a' : '#f6f6f9',               
@@ -195,9 +323,29 @@ const Historial = ({ session }) => {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: '12px',
       marginBottom: '22px',
       paddingBottom: '18px',
       borderBottom: `1px solid ${tokens.line}`
+    },
+    searchBar: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      backgroundColor: darkMode ? '#0f172a' : '#f6f6f9',
+      border: `1px solid ${tokens.line}`,
+      borderRadius: '9px',
+      padding: '8px 12px',
+      width: '220px'
+    },
+    searchInput: {
+      border: 'none',
+      outline: 'none',
+      background: 'transparent',
+      fontSize: '12.5px',
+      width: '100%',
+      color: tokens.ink
     },
     titleGroup: { display: 'flex', alignItems: 'center', gap: '12px' },
     iconBadge: (color, soft) => ({
@@ -464,19 +612,32 @@ const Historial = ({ session }) => {
                 {isAdmin ? "Gestión global de recargas" : "Mi historial de créditos"}
               </h2>
               <p style={styles.subTitulo}>
-                {movimientos.length} {movimientos.length === 1 ? 'registro' : 'registros'}
+                {movimientosFiltrados.length} {movimientosFiltrados.length === 1 ? 'registro' : 'registros'}
+                {searchMovimientos.trim() && ` de ${movimientos.length}`}
               </p>
             </div>
           </div>
-          <button
-            className="hist-refresh-btn"
-            onClick={fetchDatos}
-            disabled={loading}
-            style={styles.refreshBtn(loading)}
-          >
-            <RefreshCw size={13} className={loading ? 'hist-refresh-icon-spin' : ''} />
-            {loading ? 'Cargando' : 'Actualizar'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={styles.searchBar}>
+              <Search size={14} style={{ color: tokens.inkFaint, flexShrink: 0 }} />
+              <input
+                type="text"
+                placeholder="Buscar por día, empresa, correo..."
+                value={searchMovimientos}
+                onChange={(e) => { setSearchMovimientos(e.target.value); setPagMovimientos(1); }}
+                style={styles.searchInput}
+              />
+            </div>
+            <button
+              className="hist-refresh-btn"
+              onClick={fetchDatos}
+              disabled={loading}
+              style={styles.refreshBtn(loading)}
+            >
+              <RefreshCw size={13} className={loading ? 'hist-refresh-icon-spin' : ''} />
+              {loading ? 'Cargando' : 'Actualizar'}
+            </button>
+          </div>
         </div>
 
         <table style={styles.table}>
@@ -487,6 +648,8 @@ const Historial = ({ session }) => {
               <th style={styles.th}>Descripción</th>
               <th style={styles.th}>Realizado por</th>
               <th style={{ ...styles.th, textAlign: 'right' }}>Cantidad</th>
+              <th style={{ ...styles.th, textAlign: 'right' }}>Saldo antes</th>
+              <th style={{ ...styles.th, textAlign: 'right' }}>Saldo después</th>
             </tr>
           </thead>
           <tbody>
@@ -494,6 +657,7 @@ const Historial = ({ session }) => {
               ? renderSkeletonRows(isAdmin ? 5 : 4)
               : movsPaginados.map((m, i) => {
                 const dateObj = new Date(m.created_at);
+                const saldo = saldoPorEvento[`mov-${m.id}`];
                 return (
                   <tr key={m.id} className="hist-row" style={{ ...styles.row, animationDelay: `${i * 30}ms` }}>
                     <td style={styles.td}>
@@ -526,8 +690,14 @@ const Historial = ({ session }) => {
                         {m.admin_email || 'Sistema'}
                       </span>
                     </td>
-                    <td style={styles.montoPositivo}>
-                      +{m.cantidad.toLocaleString('es-CL')}
+                    <td style={m.tipo === 'gasto' ? styles.montoNegativo : styles.montoPositivo}>
+                      {m.tipo === 'gasto' ? '-' : '+'}{m.cantidad.toLocaleString('es-CL')}
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'right', color: tokens.inkFaint }}>
+                      {(saldo?.antes ?? 0).toLocaleString('es-CL')}
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, color: tokens.ink }}>
+                      {(saldo?.despues ?? 0).toLocaleString('es-CL')}
                     </td>
                   </tr>
                 );
@@ -535,10 +705,10 @@ const Historial = ({ session }) => {
           </tbody>
         </table>
         {renderPagination(pagMovimientos, totalPagMovs, setPagMovimientos)}
-        {!loading && movimientos.length === 0 && (
+        {!loading && movimientosFiltrados.length === 0 && (
           <div style={styles.emptyState}>
             <Inbox size={26} strokeWidth={1.6} />
-            <span>No hay registros disponibles.</span>
+            <span>{searchMovimientos.trim() ? 'No hay resultados para esa búsqueda.' : 'No hay registros disponibles.'}</span>
           </div>
         )}
       </div>
@@ -555,19 +725,32 @@ const Historial = ({ session }) => {
                 {isAdmin ? "Gestión global de canjes" : "Mis canjes de archivos realizados"}
               </h2>
               <p style={styles.subTitulo}>
-                {canjes.length} {canjes.length === 1 ? 'registro' : 'registros'}
+                {canjesFiltrados.length} {canjesFiltrados.length === 1 ? 'registro' : 'registros'}
+                {searchCanjes.trim() && ` de ${canjes.length}`}
               </p>
             </div>
           </div>
-          <button
-            className="hist-refresh-btn"
-            onClick={fetchDatos}
-            disabled={loading}
-            style={styles.refreshBtn(loading)}
-          >
-            <RefreshCw size={13} className={loading ? 'hist-refresh-icon-spin' : ''} />
-            {loading ? 'Cargando' : 'Actualizar'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={styles.searchBar}>
+              <Search size={14} style={{ color: tokens.inkFaint, flexShrink: 0 }} />
+              <input
+                type="text"
+                placeholder="Buscar por día, empresa, correo, servicio..."
+                value={searchCanjes}
+                onChange={(e) => { setSearchCanjes(e.target.value); setPagCanjes(1); }}
+                style={styles.searchInput}
+              />
+            </div>
+            <button
+              className="hist-refresh-btn"
+              onClick={fetchDatos}
+              disabled={loading}
+              style={styles.refreshBtn(loading)}
+            >
+              <RefreshCw size={13} className={loading ? 'hist-refresh-icon-spin' : ''} />
+              {loading ? 'Cargando' : 'Actualizar'}
+            </button>
+          </div>
         </div>
 
         <table style={styles.table}>
@@ -578,6 +761,8 @@ const Historial = ({ session }) => {
               <th style={styles.th}>Detalle</th>
               <th style={styles.th}>Servicio</th>
               <th style={{ ...styles.th, textAlign: 'right' }}>Cantidad</th>
+              <th style={{ ...styles.th, textAlign: 'right' }}>Saldo antes</th>
+              <th style={{ ...styles.th, textAlign: 'right' }}>Saldo después</th>
             </tr>
           </thead>
           <tbody>
@@ -585,6 +770,7 @@ const Historial = ({ session }) => {
               ? renderSkeletonRows(isAdmin ? 4 : 3)
               : canjesPaginados.map((c, i) => {
                 const fechaObj = new Date(c.fecha);
+                const saldo = saldoPorEvento[`canje-${c.id}`];
                 return (
                   <tr key={c.id} className="hist-row" style={{ ...styles.row, animationDelay: `${i * 30}ms` }}>
                     <td style={styles.td}>
@@ -621,16 +807,22 @@ const Historial = ({ session }) => {
                     <td style={styles.montoNegativo}>
                       -{c.cantidad.toLocaleString('es-CL')}
                     </td>
+                    <td style={{ ...styles.td, textAlign: 'right', color: tokens.inkFaint }}>
+                      {(saldo?.antes ?? 0).toLocaleString('es-CL')}
+                    </td>
+                    <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, color: tokens.ink }}>
+                      {(saldo?.despues ?? 0).toLocaleString('es-CL')}
+                    </td>
                   </tr>
                 );
               })}
           </tbody>
         </table>
         {renderPagination(pagCanjes, totalPagCanjes, setPagCanjes)}
-        {!loading && canjes.length === 0 && (
+        {!loading && canjesFiltrados.length === 0 && (
           <div style={styles.emptyState}>
             <Inbox size={26} strokeWidth={1.6} />
-            <span>No hay canjes registrados.</span>
+            <span>{searchCanjes.trim() ? 'No hay resultados para esa búsqueda.' : 'No hay canjes registrados.'}</span>
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 
@@ -109,6 +109,10 @@ const Admin = ({ session }) => {
   const [exportandoInformeArchivos, setExportandoInformeArchivos] = useState(false);
   const [descuentoEdit, setDescuentoEdit] = useState('0');
   const [guardandoDescuento, setGuardandoDescuento] = useState(false);
+  const [tipoAjuste, setTipoAjuste] = useState('SUMAR');
+  const [montoAjuste, setMontoAjuste] = useState('');
+  const [motivoAjuste, setMotivoAjuste] = useState('');
+  const [aplicandoAjuste, setAplicandoAjuste] = useState(false);
   const [searchEspeciales, setSearchEspeciales] = useState('');
   const [actualizandoEspecialId, setActualizandoEspecialId] = useState(null);
 
@@ -210,18 +214,83 @@ const Admin = ({ session }) => {
   };
 
   const fetchMovimientos = async (userId) => {
-    const { data, error } = await supabase
-      .from('movimientos')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (!error) setMovimientos(data || []);
+    const [{ data: recargas, error: errRecargas }, { data: canjes, error: errCanjes }] = await Promise.all([
+      supabase.from('movimientos').select('*').eq('user_id', userId),
+      supabase.from('historial_movimientos').select('*').eq('perfil_id', userId)
+    ]);
+
+    if (errRecargas || errCanjes) return;
+
+    // Recargas y canjes son dos tablas distintas; se combinan en una sola
+    // línea de tiempo (misma fecha/hora real de cada una) para que el
+    // historial de la ficha del cliente quede en el orden correcto.
+    const combinados = [
+      ...(recargas || []).map(m => ({ id: `mov-${m.id}`, fecha: m.created_at, descripcion: m.descripcion, cantidad: m.cantidad, tipo: m.tipo })),
+      ...(canjes || []).map(c => ({ id: `canje-${c.id}`, fecha: c.fecha, descripcion: c.descripcion, cantidad: c.cantidad, tipo: 'canje' }))
+    ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+    setMovimientos(combinados);
   };
 
   const handleOpenDetails = (user) => {
     setSelectedUser(user);
     setDescuentoEdit(String(user.descuento_porcentaje || 0));
+    setTipoAjuste('SUMAR');
+    setMontoAjuste('');
+    setMotivoAjuste('');
     fetchMovimientos(user.id);
+  };
+
+  const handleAplicarAjusteCredits = async () => {
+    const amount = parseInt(montoAjuste, 10);
+    if (!amount || isNaN(amount) || amount <= 0) {
+      alert('Ingresa una cantidad válida.');
+      return;
+    }
+    if (tipoAjuste === 'RESTAR' && (selectedUser.credits || 0) < amount) {
+      alert('Error: El usuario no tiene suficientes créditos.');
+      return;
+    }
+
+    const desc = motivoAjuste.trim() || (tipoAjuste === 'SUMAR' ? 'Carga manual de créditos' : 'Retiro manual de créditos');
+
+    setAplicandoAjuste(true);
+    try {
+      const nuevoTotal = tipoAjuste === 'SUMAR' ? (selectedUser.credits || 0) + amount : (selectedUser.credits || 0) - amount;
+      const tipoMovimiento = tipoAjuste === 'SUMAR' ? 'carga' : 'gasto';
+
+      const { error: errorUpdate } = await supabase
+        .from('profiles')
+        .update({ credits: nuevoTotal })
+        .eq('id', selectedUser.id);
+
+      if (errorUpdate) throw errorUpdate;
+
+      const { error: errorMov } = await supabase
+        .from('movimientos')
+        .insert([
+          {
+            user_id: selectedUser.id,
+            descripcion: desc,
+            cantidad: amount,
+            tipo: tipoMovimiento,
+            admin_email: session?.user?.email
+          }
+        ]);
+
+      if (errorMov) throw errorMov;
+
+      setSelectedUser(prev => ({ ...prev, credits: nuevoTotal }));
+      setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, credits: nuevoTotal } : u));
+      setMontoAjuste('');
+      setMotivoAjuste('');
+      fetchMovimientos(selectedUser.id);
+      alert(`✅ Operación exitosa. Nuevo saldo: ${nuevoTotal.toLocaleString('es-CL')}`);
+    } catch (error) {
+      alert('Error al ajustar créditos: ' + error.message);
+    } finally {
+      setAplicandoAjuste(false);
+    }
   };
 
   const handleGuardarDescuento = async () => {
@@ -462,11 +531,7 @@ const Admin = ({ session }) => {
         .from('archivos')
         .select(`
           *,
-          profiles:user_id (
-            company,
-            email,
-            cliente_especial
-          )
+          profiles:user_id (*)
         `)
         .order('created_at', { ascending: false });
 
@@ -477,9 +542,20 @@ const Admin = ({ session }) => {
         return {
           'N° Orden': a.numero_orden || '',
           'ID Solicitud': a.id,
+          'Nombre completo cliente': `${a.profiles?.full_name || ''} ${a.profiles?.apellido || ''}`.trim(),
           'Empresa': a.profiles?.company || 'PARTICULAR',
           'Correo cliente': a.profiles?.email || '',
+          'Teléfono cliente': a.profiles?.phone || '',
+          'RUT cliente': a.profiles?.rut || '',
+          'Actividad cliente': a.profiles?.actividad || '',
+          'País cliente': a.profiles?.country || '',
+          'Fecha de nacimiento cliente': a.profiles?.fecha_nacimiento || '',
+          'Créditos actuales del cliente': a.profiles?.credits ?? '',
+          'Cuenta aprobada': a.profiles?.is_approved ? 'Sí' : 'No',
           'Cliente especial': a.profiles?.cliente_especial ? 'Sí' : 'No',
+          'Descuento del cliente (%)': a.profiles?.descuento_porcentaje ?? 0,
+          'Aprobado por': a.profiles?.approved_by || '',
+          'Fecha de aprobación del cliente': formatearFechaArchivo(a.profiles?.approved_at),
           'Patente': a.patente || '',
           'Marca / Modelo': a.marca_modelo || '',
           'Año': dt.anio || '',
@@ -545,12 +621,26 @@ const Admin = ({ session }) => {
     }
   };
 
+  // "movimientos" ya viene ordenado del más reciente al más antiguo (ver
+  // fetchMovimientos). Se calcula hacia atrás desde el saldo real actual del
+  // cliente, así el registro más reciente siempre calza con lo que tiene hoy.
+  const movimientosConSaldo = useMemo(() => {
+    let saldo = selectedUser?.credits ?? 0;
+    return movimientos.map(m => {
+      const delta = (m.tipo === 'gasto' || m.tipo === 'canje') ? -m.cantidad : m.cantidad;
+      const saldoDespues = saldo;
+      saldo -= delta;
+      return { ...m, saldoDespues };
+    });
+  }, [movimientos, selectedUser?.credits]);
+
   // --- LÓGICA DE FILTRADO Y PAGINACIÓN ---
   const usersFiltrados = users.filter(u => {
     const searchLower = searchTerm.toLowerCase();
     return (
       (u.full_name?.toLowerCase().includes(searchLower)) ||
-      (u.email?.toLowerCase().includes(searchLower))
+      (u.email?.toLowerCase().includes(searchLower)) ||
+      (u.company?.toLowerCase().includes(searchLower))
     );
   });
 
@@ -894,7 +984,7 @@ const Admin = ({ session }) => {
           <input
             className="admin-search-input"
             type="text"
-            placeholder="Buscar por email o nombre..."
+            placeholder="Buscar por email, nombre o empresa..."
             style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px', background: 'transparent', color: t.ink }}
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }}
@@ -906,6 +996,7 @@ const Admin = ({ session }) => {
             <tr>
               <th style={styles.th}>Email</th>
               <th style={styles.th}>Nombre</th>
+              <th style={styles.th}>Empresa</th>
               <th style={styles.th}>Teléfono</th>
               <th style={styles.th}>Créditos</th>
               <th style={styles.th}>Acciones</th>
@@ -916,6 +1007,9 @@ const Admin = ({ session }) => {
               <tr key={u.id} className="admin-row" style={{ animationDelay: `${i * 25}ms` }}>
                 <td style={styles.td}>{u.email}</td>
                 <td style={{ ...styles.td, color: t.inkSoft }}>{u.full_name || 'Sin nombre'}</td>
+                <td style={{ ...styles.td, color: u.company ? t.inkSoft : t.inkFaint, fontStyle: u.company ? 'normal' : 'italic' }}>
+                  {u.company || 'PARTICULAR'}
+                </td>
                 <td style={{ ...styles.td, color: u.phone ? t.inkSoft : t.inkFaint, fontStyle: u.phone ? 'normal' : 'italic' }}>
                   {u.phone || 'Sin número registrado'}
                 </td>
@@ -946,7 +1040,7 @@ const Admin = ({ session }) => {
             ))}
             {!loading && usersPaginados.length === 0 && (
               <tr>
-                <td colSpan="5">
+                <td colSpan="6">
                   <div style={styles.emptyState}>
                     <Icon.Inbox />
                     <span>No se encontraron usuarios.</span>
@@ -1075,6 +1169,96 @@ const Admin = ({ session }) => {
                 <p style={{ fontSize: '10px', color: t.inkFaint, margin: 0, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Créditos disponibles</p>
                 <p style={{ fontSize: '14px', margin: '6px 0 15px', fontWeight: 700, color: t.brand, borderBottom: `1px solid ${t.line}`, paddingBottom: '8px' }}>{selectedUser.credits?.toLocaleString('es-CL')}</p>
               </div>
+              <div>
+                <p style={{ fontSize: '10px', color: t.inkFaint, margin: 0, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Aprobado por</p>
+                <p style={{ fontSize: '14px', margin: '6px 0 15px', color: t.ink, borderBottom: `1px solid ${t.line}`, paddingBottom: '8px' }}>
+                  {selectedUser.approved_by || (selectedUser.is_approved ? 'Sin registro (aprobado antes de este cambio)' : '—')}
+                </p>
+              </div>
+              <div>
+                <p style={{ fontSize: '10px', color: t.inkFaint, margin: 0, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fecha / hora de aprobación</p>
+                <p style={{ fontSize: '14px', margin: '6px 0 15px', color: t.ink, borderBottom: `1px solid ${t.line}`, paddingBottom: '8px' }}>
+                  {selectedUser.approved_at
+                    ? new Date(selectedUser.approved_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
+                    : '—'}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '20px', paddingBottom: '18px', borderBottom: `1px solid ${t.line}` }}>
+              <p style={{ fontSize: '10px', color: t.inkFaint, margin: 0, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ajustar créditos</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', borderRadius: '8px', border: `1px solid ${t.line}`, overflow: 'hidden' }}>
+                  <button
+                    onClick={() => setTipoAjuste('SUMAR')}
+                    style={{
+                      padding: '9px 14px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                      backgroundColor: tipoAjuste === 'SUMAR' ? t.positive : 'transparent',
+                      color: tipoAjuste === 'SUMAR' ? '#fff' : t.inkFaint
+                    }}
+                  >
+                    + Sumar
+                  </button>
+                  <button
+                    onClick={() => setTipoAjuste('RESTAR')}
+                    style={{
+                      padding: '9px 14px', border: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                      backgroundColor: tipoAjuste === 'RESTAR' ? t.brand : 'transparent',
+                      color: tipoAjuste === 'RESTAR' ? '#fff' : t.inkFaint
+                    }}
+                  >
+                    − Restar
+                  </button>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Cantidad"
+                  value={montoAjuste}
+                  onChange={(e) => setMontoAjuste(e.target.value)}
+                  style={{
+                    width: '100px', padding: '9px 10px', borderRadius: '8px',
+                    border: `1px solid ${t.line}`, backgroundColor: darkMode ? '#0f172a' : '#fff',
+                    color: t.ink, fontSize: '13px', fontWeight: 700, outline: 'none'
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder={tipoAjuste === 'SUMAR' ? 'Carga manual de créditos' : 'Retiro manual de créditos'}
+                  value={motivoAjuste}
+                  onChange={(e) => setMotivoAjuste(e.target.value)}
+                  style={{
+                    flex: 1, minWidth: '140px', padding: '9px 10px', borderRadius: '8px',
+                    border: `1px solid ${t.line}`, backgroundColor: darkMode ? '#0f172a' : '#fff',
+                    color: t.ink, fontSize: '12px', outline: 'none'
+                  }}
+                />
+                <button
+                  onClick={handleAplicarAjusteCredits}
+                  disabled={aplicandoAjuste}
+                  style={{
+                    padding: '9px 16px', borderRadius: '8px', border: 'none',
+                    backgroundColor: t.brand, color: '#fff', fontSize: '11.5px', fontWeight: 700,
+                    cursor: aplicandoAjuste ? 'default' : 'pointer', opacity: aplicandoAjuste ? 0.6 : 1,
+                    textTransform: 'uppercase'
+                  }}
+                >
+                  {aplicandoAjuste ? 'Aplicando...' : 'Aplicar'}
+                </button>
+              </div>
+              {montoAjuste && !isNaN(parseInt(montoAjuste, 10)) && parseInt(montoAjuste, 10) > 0 && (
+                <p style={{ fontSize: '12px', margin: '10px 0 0', color: t.inkSoft }}>
+                  Quedará con{' '}
+                  <strong style={{ color: t.brand }}>
+                    {(
+                      tipoAjuste === 'SUMAR'
+                        ? (selectedUser.credits || 0) + parseInt(montoAjuste, 10)
+                        : (selectedUser.credits || 0) - parseInt(montoAjuste, 10)
+                    ).toLocaleString('es-CL')}
+                  </strong>{' '}
+                  créditos después de esta {tipoAjuste === 'SUMAR' ? 'carga' : 'resta'}.
+                </p>
+              )}
             </div>
 
             <div style={{ marginBottom: '10px' }}>
@@ -1119,11 +1303,13 @@ const Admin = ({ session }) => {
                     <th style={{ textAlign: 'left', padding: '8px 0', fontWeight: 700 }}>Fecha / Hora</th>
                     <th style={{ textAlign: 'left', fontWeight: 700 }}>Detalle</th>
                     <th style={{ textAlign: 'right', fontWeight: 700 }}>Cantidad</th>
+                    <th style={{ textAlign: 'right', fontWeight: 700 }}>Saldo después</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {movimientos.map(m => {
-                    const fechaObj = new Date(m.created_at);
+                  {movimientosConSaldo.map(m => {
+                    const fechaObj = new Date(m.fecha);
+                    const esNegativo = m.tipo === 'gasto' || m.tipo === 'canje';
                     return (
                       <tr key={m.id} style={{ borderTop: `1px solid ${t.line}` }}>
                         <td style={{ padding: '10px 0', color: t.inkSoft }}>
@@ -1136,14 +1322,17 @@ const Admin = ({ session }) => {
                           </div>
                         </td>
                         <td style={{ color: t.inkSoft, verticalAlign: 'middle' }}>{m.descripcion}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 700, color: m.tipo === 'gasto' ? t.brand : t.positive, verticalAlign: 'middle' }}>
-                          {m.tipo === 'gasto' ? '-' : '+'}{m.cantidad.toLocaleString('es-CL')}
+                        <td style={{ textAlign: 'right', fontWeight: 700, color: esNegativo ? t.brand : t.positive, verticalAlign: 'middle' }}>
+                          {esNegativo ? '-' : '+'}{m.cantidad.toLocaleString('es-CL')}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 700, color: t.ink, verticalAlign: 'middle' }}>
+                          {m.saldoDespues.toLocaleString('es-CL')}
                         </td>
                       </tr>
                     );
                   })}
                   {movimientos.length === 0 && (
-                    <tr><td colSpan="3" style={{ textAlign: 'center', padding: '18px 0', color: t.inkFaint }}>Sin movimientos registrados.</td></tr>
+                    <tr><td colSpan="4" style={{ textAlign: 'center', padding: '18px 0', color: t.inkFaint }}>Sin movimientos registrados.</td></tr>
                   )}
                 </tbody>
               </table>

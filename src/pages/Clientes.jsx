@@ -50,7 +50,11 @@ const Clientes = ({ session }) => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ is_approved: true })
+        .update({
+          is_approved: true,
+          approved_by: session?.user?.email || null,
+          approved_at: new Date().toISOString()
+        })
         .eq('id', id);
 
       if (error) throw error;

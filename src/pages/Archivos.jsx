@@ -39,11 +39,7 @@ const Archivos = ({ session }) => {
         .from('archivos')
         .select(`
           *,
-          profiles:user_id (
-            company,
-            email,
-            cliente_especial
-          )
+          profiles:user_id (*)
         `);
 
       if (!isAdmin) {
@@ -81,9 +77,20 @@ const Archivos = ({ session }) => {
           return {
             'N° Orden': a.numero_orden || '',
             'ID Solicitud': a.id,
+            'Nombre completo cliente': `${a.profiles?.full_name || ''} ${a.profiles?.apellido || ''}`.trim(),
             'Empresa': a.profiles?.company || 'PARTICULAR',
             'Correo cliente': a.profiles?.email || '',
+            'Teléfono cliente': a.profiles?.phone || '',
+            'RUT cliente': a.profiles?.rut || '',
+            'Actividad cliente': a.profiles?.actividad || '',
+            'País cliente': a.profiles?.country || '',
+            'Fecha de nacimiento cliente': a.profiles?.fecha_nacimiento || '',
+            'Créditos actuales del cliente': a.profiles?.credits ?? '',
+            'Cuenta aprobada': a.profiles?.is_approved ? 'Sí' : 'No',
             'Cliente especial': a.profiles?.cliente_especial ? 'Sí' : 'No',
+            'Descuento del cliente (%)': a.profiles?.descuento_porcentaje ?? 0,
+            'Aprobado por': a.profiles?.approved_by || '',
+            'Fecha de aprobación del cliente': formatearFecha(a.profiles?.approved_at),
             'Patente': a.patente || '',
             'Marca / Modelo': a.marca_modelo || '',
             'Año': dt.anio || '',
