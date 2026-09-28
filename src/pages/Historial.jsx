@@ -14,7 +14,8 @@ import {
   Clock,
   PlusCircle,
   CreditCard,
-  Search
+  Search,
+  AlertTriangle
 } from 'lucide-react';
 
 const Historial = ({ session }) => {
@@ -234,6 +235,32 @@ const Historial = ({ session }) => {
     return resultado;
   }, [movimientos, canjes]);
 
+  const saldoPorEventoMap = saldoPorEvento;
+
+  // Aviso de "Descuadre": a diferencia del cálculo de arriba (que se arma
+  // hacia atrás y por eso siempre se ve "prolijo"), acá se suman recargas y
+  // canjes por separado y se comparan contra el saldo real — así si un canje
+  // nunca descontó de verdad, sí se nota. Los movimientos de "Corrección de
+  // saldo" (los que se dejan al ajustar manualmente un cliente ya detectado)
+  // no cuentan como un gasto nuevo, si no cualquier cliente ya corregido
+  // seguiría marcado para siempre.
+  const descuadrePorUsuario = useMemo(() => {
+    const resultado = {};
+    const userIds = new Set([...movimientos.map(m => m.user_id), ...canjes.map(c => c.perfil_id)]);
+    for (const userId of userIds) {
+      const misMovs = movimientos.filter(m => m.user_id === userId && !m.descripcion?.startsWith('Corrección de saldo'));
+      const misCanjes = canjes.filter(c => c.perfil_id === userId);
+      const totalRecargas = misMovs.filter(m => m.tipo === 'carga').reduce((s, m) => s + m.cantidad, 0);
+      const totalGastos = misMovs.filter(m => m.tipo === 'gasto').reduce((s, m) => s + m.cantidad, 0);
+      const totalCanjes = misCanjes.reduce((s, c) => s + c.cantidad, 0);
+      const saldoEsperado = totalRecargas - totalGastos - totalCanjes;
+      const creditsReal = movimientos.find(m => m.user_id === userId)?.profiles?.credits
+        ?? canjes.find(c => c.perfil_id === userId)?.profiles?.credits ?? 0;
+      resultado[userId] = creditsReal - saldoEsperado;
+    }
+    return resultado;
+  }, [movimientos, canjes]);
+
   const tokens = {
     bg: darkMode ? '#0f172a' : '#f6f6f9',               
     surface: darkMode ? '#1e293b' : '#ffffff',          
@@ -439,6 +466,20 @@ const Historial = ({ session }) => {
       fontSize: '11px',
       color: tokens.inkSoft,
       border: `1px solid ${tokens.line}`
+    },
+    descuadreBadge: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+      backgroundColor: darkMode ? 'rgba(245, 158, 11, 0.15)' : '#fffbeb',
+      color: darkMode ? '#fbbf24' : '#92400e',
+      border: `1px solid ${darkMode ? 'rgba(245, 158, 11, 0.35)' : '#fde68a'}`,
+      padding: '3px 8px',
+      borderRadius: '999px',
+      fontSize: '10px',
+      fontWeight: 700,
+      marginTop: '4px',
+      whiteSpace: 'nowrap'
     },
     fecha: { fontWeight: 600, color: tokens.ink },
     hora: {
@@ -657,7 +698,8 @@ const Historial = ({ session }) => {
               ? renderSkeletonRows(isAdmin ? 5 : 4)
               : movsPaginados.map((m, i) => {
                 const dateObj = new Date(m.created_at);
-                const saldo = saldoPorEvento[`mov-${m.id}`];
+                const saldo = saldoPorEventoMap[`mov-${m.id}`];
+                const tieneDescuadre = descuadrePorUsuario[m.user_id] !== 0;
                 return (
                   <tr key={m.id} className="hist-row" style={{ ...styles.row, animationDelay: `${i * 30}ms` }}>
                     <td style={styles.td}>
@@ -680,6 +722,11 @@ const Historial = ({ session }) => {
                             <Mail size={12} />
                             {m.profiles?.email || '—'}
                           </span>
+                          {tieneDescuadre && (
+                            <span style={styles.descuadreBadge} title="El saldo de este cliente no cuadra con sus recargas y canjes reales">
+                              <AlertTriangle size={11} /> Descuadre
+                            </span>
+                          )}
                         </div>
                       </td>
                     )}
@@ -770,7 +817,8 @@ const Historial = ({ session }) => {
               ? renderSkeletonRows(isAdmin ? 4 : 3)
               : canjesPaginados.map((c, i) => {
                 const fechaObj = new Date(c.fecha);
-                const saldo = saldoPorEvento[`canje-${c.id}`];
+                const saldo = saldoPorEventoMap[`canje-${c.id}`];
+                const tieneDescuadre = descuadrePorUsuario[c.perfil_id] !== 0;
                 return (
                   <tr key={c.id} className="hist-row" style={{ ...styles.row, animationDelay: `${i * 30}ms` }}>
                     <td style={styles.td}>
@@ -794,6 +842,11 @@ const Historial = ({ session }) => {
                             <Mail size={12} />
                             {c.profiles?.email || '—'}
                           </span>
+                          {tieneDescuadre && (
+                            <span style={styles.descuadreBadge} title="El saldo de este cliente no cuadra con sus recargas y canjes reales">
+                              <AlertTriangle size={11} /> Descuadre
+                            </span>
+                          )}
                         </div>
                       </td>
                     )}

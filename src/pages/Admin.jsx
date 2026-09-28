@@ -118,6 +118,8 @@ const Admin = ({ session }) => {
 
   // --- NUEVOS ESTADOS PARA METRICAS DE ARCHIVOS ---
   const [stats, setStats] = useState({ semana: 0, mes: 0, total: 0 });
+  const [descuadres, setDescuadres] = useState([]);
+  const [loadingDescuadres, setLoadingDescuadres] = useState(false);
 
   // --- OBTENER EL ESTADO DEL TEMA DESDE EL LAYOUT ---
   const { darkMode } = useOutletContext();
@@ -127,6 +129,7 @@ const Admin = ({ session }) => {
 
   // --- NUEVOS ESTADOS PARA BÚSQUEDA Y PAGINACIÓN ---
   const [searchTerm, setSearchTerm] = useState('');
+  const [ordenFecha, setOrdenFecha] = useState(null); // null | 'asc' | 'desc'
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina] = useState(10);
 
@@ -157,6 +160,7 @@ const Admin = ({ session }) => {
       fetchUsers();
       fetchConfig();
       fetchFileStats(); // Llamamos al cargador de métricas
+      fetchDescuadres();
     }
   }, [isAdmin]);
 
@@ -210,6 +214,55 @@ const Admin = ({ session }) => {
       });
     } catch (err) {
       console.error("Error calculando analíticas de archivos:", err);
+    }
+  };
+
+  // Compara, para cada cliente, cuánto debería tener (recargas - retiros -
+  // canjes) contra su saldo real. No todos compran créditos exactos, así que
+  // no hace falta que dé 0 — lo que importa es que nunca hayan canjeado más
+  // de lo que recargaron (si diferencia > 0, se le regaló servicio sin
+  // cobrar). Se calcula acá, no queda guardado en ningún lado.
+  const fetchDescuadres = async () => {
+    setLoadingDescuadres(true);
+    try {
+      const [{ data: perfiles }, { data: movs }, { data: canjes }] = await Promise.all([
+        supabase.from('profiles').select('id, email, company, credits'),
+        supabase.from('movimientos').select('user_id, tipo, cantidad, descripcion'),
+        supabase.from('historial_movimientos').select('perfil_id, cantidad')
+      ]);
+
+      // Cuentas de admin/pruebas, no clientes reales — no tiene sentido
+      // mostrarlas acá aunque su saldo no cuadre matemáticamente.
+      const EXCLUIR_EMAILS = ['focaldevs@gmail.com', 'felipe.acuna.fajardo@gmail.com'];
+
+      const resultado = [];
+      for (const p of (perfiles || []).filter(p => !EXCLUIR_EMAILS.includes(p.email?.toLowerCase()))) {
+        // Los "gasto" que son correcciones de saldo (por canjes que nunca
+        // descontaron de verdad) no cuentan como un retiro nuevo — ya
+        // representan el mismo problema que "canjes" descuenta más abajo.
+        // Si se sumaran los dos, el descuadre ya corregido volvería a
+        // aparecer como si siguiera pendiente.
+        const misMovs = (movs || []).filter(m => m.user_id === p.id && !m.descripcion?.startsWith('Corrección de saldo'));
+        const misCanjes = (canjes || []).filter(c => c.perfil_id === p.id);
+        if (misMovs.length === 0 && misCanjes.length === 0) continue;
+
+        const totalRecargas = misMovs.filter(m => m.tipo === 'carga').reduce((s, m) => s + m.cantidad, 0);
+        const totalGastos = misMovs.filter(m => m.tipo === 'gasto').reduce((s, m) => s + m.cantidad, 0);
+        const totalCanjes = misCanjes.reduce((s, c) => s + c.cantidad, 0);
+        const saldoEsperado = totalRecargas - totalGastos - totalCanjes;
+        const diferencia = (p.credits || 0) - saldoEsperado;
+
+        if (diferencia !== 0) {
+          resultado.push({ ...p, totalRecargas, totalCanjes, saldoEsperado, diferencia });
+        }
+      }
+
+      resultado.sort((a, b) => Math.abs(b.diferencia) - Math.abs(a.diferencia));
+      setDescuadres(resultado);
+    } catch (err) {
+      console.error('Error calculando descuadres de créditos:', err);
+    } finally {
+      setLoadingDescuadres(false);
     }
   };
 
@@ -635,14 +688,20 @@ const Admin = ({ session }) => {
   }, [movimientos, selectedUser?.credits]);
 
   // --- LÓGICA DE FILTRADO Y PAGINACIÓN ---
-  const usersFiltrados = users.filter(u => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      (u.full_name?.toLowerCase().includes(searchLower)) ||
-      (u.email?.toLowerCase().includes(searchLower)) ||
-      (u.company?.toLowerCase().includes(searchLower))
-    );
-  });
+  const usersFiltrados = users
+    .filter(u => {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        (u.full_name?.toLowerCase().includes(searchLower)) ||
+        (u.email?.toLowerCase().includes(searchLower)) ||
+        (u.company?.toLowerCase().includes(searchLower))
+      );
+    })
+    .sort((a, b) => {
+      if (!ordenFecha) return 0;
+      const diff = new Date(a.created_at) - new Date(b.created_at);
+      return ordenFecha === 'asc' ? diff : -diff;
+    });
 
   const totalPaginas = Math.ceil(usersFiltrados.length / itemsPorPagina);
   const indiceUltimo = paginaActual * itemsPorPagina;
@@ -979,16 +1038,30 @@ const Admin = ({ session }) => {
       <div style={styles.contentCard}>
         <h2 style={styles.cardTitle}>Usuarios y créditos</h2>
 
-        <div style={styles.searchBar}>
-          <Icon.Search style={{ color: t.inkFaint, flexShrink: 0 }} />
-          <input
-            className="admin-search-input"
-            type="text"
-            placeholder="Buscar por email, nombre o empresa..."
-            style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px', background: 'transparent', color: t.ink }}
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }}
-          />
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ ...styles.searchBar, flex: 1, minWidth: '200px' }}>
+            <Icon.Search style={{ color: t.inkFaint, flexShrink: 0 }} />
+            <input
+              className="admin-search-input"
+              type="text"
+              placeholder="Buscar por email, nombre o empresa..."
+              style={{ border: 'none', outline: 'none', width: '100%', fontSize: '13px', background: 'transparent', color: t.ink }}
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }}
+            />
+          </div>
+          <button
+            className="admin-refresh"
+            onClick={() => {
+              setOrdenFecha(prev => prev === 'desc' ? 'asc' : 'desc');
+              setPaginaActual(1);
+            }}
+            style={styles.refreshBtn(false)}
+            title="Ordenar por fecha de entrada"
+          >
+            <Icon.Clock />
+            Fecha de entrada {ordenFecha === 'asc' ? '↑' : ordenFecha === 'desc' ? '↓' : ''}
+          </button>
         </div>
 
         <table style={styles.table}>
@@ -998,6 +1071,7 @@ const Admin = ({ session }) => {
               <th style={styles.th}>Nombre</th>
               <th style={styles.th}>Empresa</th>
               <th style={styles.th}>Teléfono</th>
+              <th style={styles.th}>Fecha de entrada</th>
               <th style={styles.th}>Créditos</th>
               <th style={styles.th}>Acciones</th>
             </tr>
@@ -1012,6 +1086,9 @@ const Admin = ({ session }) => {
                 </td>
                 <td style={{ ...styles.td, color: u.phone ? t.inkSoft : t.inkFaint, fontStyle: u.phone ? 'normal' : 'italic' }}>
                   {u.phone || 'Sin número registrado'}
+                </td>
+                <td style={{ ...styles.td, color: t.inkSoft }}>
+                  {u.created_at ? new Date(u.created_at).toLocaleDateString('es-CL') : '—'}
                 </td>
                 <td style={styles.td}>
                   <span style={styles.creditBadge(u.credits > 0)}>{u.credits?.toLocaleString('es-CL')}</span>
@@ -1040,7 +1117,7 @@ const Admin = ({ session }) => {
             ))}
             {!loading && usersPaginados.length === 0 && (
               <tr>
-                <td colSpan="6">
+                <td colSpan="7">
                   <div style={styles.emptyState}>
                     <Icon.Inbox />
                     <span>No se encontraron usuarios.</span>
@@ -1078,6 +1155,74 @@ const Admin = ({ session }) => {
               Siguiente <Icon.Chevron dir="right" />
             </button>
           </div>
+        )}
+      </div>
+
+      <div style={styles.contentCard}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '10px' }}>
+          <h2 style={{ ...styles.cardTitle, margin: 0 }}>Clientes con descuadre de créditos</h2>
+          <button
+            className="admin-refresh"
+            onClick={fetchDescuadres}
+            disabled={loadingDescuadres}
+            style={styles.refreshBtn(loadingDescuadres)}
+          >
+            {loadingDescuadres ? <Icon.Refresh className="admin-spin" /> : <Icon.Refresh />}
+            {loadingDescuadres ? 'Revisando...' : 'Revisar de nuevo'}
+          </button>
+        </div>
+        <p style={{ margin: '0 0 16px', fontSize: '12px', color: t.inkFaint }}>
+          Compara lo que cada cliente recargó contra lo que canjeó. No hace falta que dé 0 (pueden tener saldo sin usar) — lo que importa es que nunca hayan canjeado más de lo que recargaron.
+        </p>
+
+        {descuadres.length === 0 ? (
+          <div style={styles.emptyState}>
+            <Icon.Inbox />
+            <span>{loadingDescuadres ? 'Revisando...' : 'No hay clientes con descuadre.'}</span>
+          </div>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>Cliente</th>
+                <th style={{ ...styles.th, textAlign: 'right' }}>Recargas</th>
+                <th style={{ ...styles.th, textAlign: 'right' }}>Canjes</th>
+                <th style={{ ...styles.th, textAlign: 'right' }}>Saldo esperado</th>
+                <th style={{ ...styles.th, textAlign: 'right' }}>Saldo actual</th>
+                <th style={{ ...styles.th, textAlign: 'right' }}>Diferencia</th>
+                <th style={styles.th}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {descuadres.map((d, i) => (
+                <tr key={d.id} className="admin-row" style={{ animationDelay: `${i * 25}ms` }}>
+                  <td style={styles.td}>
+                    <div style={{ fontWeight: 700, color: t.ink }}>{d.company || 'PARTICULAR'}</div>
+                    <div style={{ fontSize: '11px', color: t.inkFaint }}>{d.email}</div>
+                  </td>
+                  <td style={{ ...styles.td, textAlign: 'right' }}>{d.totalRecargas.toLocaleString('es-CL')}</td>
+                  <td style={{ ...styles.td, textAlign: 'right' }}>{d.totalCanjes.toLocaleString('es-CL')}</td>
+                  <td style={{ ...styles.td, textAlign: 'right' }}>{d.saldoEsperado.toLocaleString('es-CL')}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700 }}>{(d.credits || 0).toLocaleString('es-CL')}</td>
+                  <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, color: d.diferencia > 0 ? t.brand : t.positive }}>
+                    {d.diferencia > 0 ? '+' : ''}{d.diferencia.toLocaleString('es-CL')}
+                  </td>
+                  <td style={styles.td}>
+                    <button
+                      className="admin-info-btn"
+                      style={styles.btnInfo}
+                      onClick={() => {
+                        const u = users.find(x => x.id === d.id);
+                        if (u) handleOpenDetails(u);
+                      }}
+                    >
+                      <Icon.Info /> Ver ficha
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 

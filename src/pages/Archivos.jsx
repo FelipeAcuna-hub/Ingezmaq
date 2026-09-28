@@ -196,7 +196,7 @@ const Archivos = ({ session }) => {
           .update({ credits: nuevosCreditos })
           .eq('id', session.user.id);
 
-        await supabase.from('movimientos').insert([
+        const { error: errorMovimiento } = await supabase.from('movimientos').insert([
           {
             user_id: session.user.id,
             tipo: 'carga',
@@ -205,6 +205,13 @@ const Archivos = ({ session }) => {
             created_at: new Date()
           }
         ]);
+
+        if (errorMovimiento) {
+          // Los créditos ya se devolvieron (lo importante); esto es solo el
+          // registro para que el admin lo vea en Créditos, no vale la pena
+          // hacer fallar toda la cancelación por esto.
+          console.error("No se pudo registrar el movimiento de cancelación:", errorMovimiento.message);
+        }
 
         alert("✅ Solicitud eliminada y créditos devueltos.");
         fetchArchivos();

@@ -276,13 +276,13 @@ const UploadFile = ({ session }) => {
         if (url) archivosAdicionales.push({ nombre: filesExtra[i].name, url });
       }
 
-      // Primero se crea la solicitud (lo único que de verdad le importa al
-      // cliente y al taller). Recién si esto funciona se cobran los créditos
-      // y se registra el canje — así, si algo falla más adelante, no queda
-      // un cliente con créditos descontados y ninguna solicitud que gestionar
-      // (como pasó con un pedido que se perdió por un corte justo después de
-      // subir los archivos).
-      const { data: archivoCreado, error: dbError } = await supabase
+      // La solicitud se crea acá; el cobro de créditos lo hace un trigger en
+      // la base de datos apenas se crea la fila (ver
+      // cobro_automatico_archivos.sql) — no se descuenta manualmente desde
+      // acá. Así el cobro queda garantizado en el mismo paso atómico sin
+      // importar qué haya creado la solicitud, y si no hay saldo suficiente
+      // el propio insert falla (no se crea nada gratis).
+      const { error: dbError } = await supabase
         .from('archivos')
         .insert({
           user_id: session.user.id,
@@ -302,18 +302,11 @@ const UploadFile = ({ session }) => {
         .select()
         .single();
 
-      if (dbError) throw dbError;
-
-      const { error: updateCreditsError } = await supabase
-        .from('profiles')
-        .update({ credits: perfil.credits - totalCreditos })
-        .eq('id', session.user.id);
-
-      if (updateCreditsError) {
-        // No se pudo cobrar: deshacemos la solicitud para no dejar un
-        // archivo activo sin haber pagado por él, y avisamos para reintentar.
-        await supabase.from('archivos').delete().eq('id', archivoCreado.id);
-        throw updateCreditsError;
+      if (dbError) {
+        if (dbError.message?.includes('Saldo insuficiente')) {
+          throw new Error(`Saldo insuficiente para completar el envío (créditos usados en otra solicitud mientras subías los archivos).`);
+        }
+        throw dbError;
       }
 
       try {
