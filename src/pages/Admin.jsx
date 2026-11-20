@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { crearLibroInforme } from '../utils/informeArchivos';
+import ModalClaveInforme from '../components/ModalClaveInforme';
 
 const checkIsWorkTime = () => {
   const now = new Date();
@@ -107,6 +109,8 @@ const Admin = ({ session }) => {
   const [exportandoId, setExportandoId] = useState(null);
   const [exportandoTodo, setExportandoTodo] = useState(false);
   const [exportandoInformeArchivos, setExportandoInformeArchivos] = useState(false);
+  // Descarga que espera la contraseña: 'clientes' | 'archivos' | null.
+  const [descargaPorConfirmar, setDescargaPorConfirmar] = useState(null);
   const [descuentoEdit, setDescuentoEdit] = useState('0');
   const [guardandoDescuento, setGuardandoDescuento] = useState(false);
   const [tipoAjuste, setTipoAjuste] = useState('SUMAR');
@@ -114,6 +118,9 @@ const Admin = ({ session }) => {
   const [motivoAjuste, setMotivoAjuste] = useState('');
   const [aplicandoAjuste, setAplicandoAjuste] = useState(false);
   const [searchEspeciales, setSearchEspeciales] = useState('');
+  const [searchIva, setSearchIva] = useState('');
+  // Por tarjeta (cliente_especial / paga_iva): mostrar solo los clientes marcados.
+  const [soloMarcados, setSoloMarcados] = useState({});
   const [actualizandoEspecialId, setActualizandoEspecialId] = useState(null);
 
   // --- NUEVOS ESTADOS PARA METRICAS DE ARCHIVOS ---
@@ -148,7 +155,7 @@ const Admin = ({ session }) => {
     { email: 'oliver.zuniga@gmail.com', acceso: 'Acceso total (Administración, Clientes, Archivos, Historial, Tickets)' },
     { email: 'focaldevs@gmail.com', acceso: 'Acceso total (Administración, Clientes, Archivos, Historial, Tickets)' },
     { email: 'respaldoestudiovaldivia@gmail.com', acceso: 'Acceso total (Administración, Clientes, Archivos, Historial, Tickets)' },
-    { email: 'alientechchile@gmail.com', acceso: 'Archivos y Clientes (aprobar/rechazar/eliminar) — sin acceso a Administración' }
+    { email: 'alientechchile@gmail.com', acceso: 'Archivos y Clientes (aprobar/rechazar solicitudes, sin eliminar clientes activos) — sin acceso a Administración' }
   ];
 
   const isAdmin =
@@ -170,6 +177,7 @@ const Admin = ({ session }) => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        .is('eliminado_at', null)
         .order('email', { ascending: true });
       if (error) throw error;
       setUsers(data || []);
@@ -226,7 +234,7 @@ const Admin = ({ session }) => {
     setLoadingDescuadres(true);
     try {
       const [{ data: perfiles }, { data: movs }, { data: canjes }] = await Promise.all([
-        supabase.from('profiles').select('id, email, company, credits'),
+        supabase.from('profiles').select('id, email, company, credits').is('eliminado_at', null),
         supabase.from('movimientos').select('user_id, tipo, cantidad, descripcion'),
         supabase.from('historial_movimientos').select('perfil_id, cantidad')
       ]);
@@ -250,7 +258,12 @@ const Admin = ({ session }) => {
         const totalGastos = misMovs.filter(m => m.tipo === 'gasto').reduce((s, m) => s + m.cantidad, 0);
         const totalCanjes = misCanjes.reduce((s, c) => s + c.cantidad, 0);
         const saldoEsperado = totalRecargas - totalGastos - totalCanjes;
-        const diferencia = (p.credits || 0) - saldoEsperado;
+        // El saldo real nunca puede ser negativo, así que si "esperado" da
+        // negativo (canjeó más de lo que recargó — recibió trabajo de más
+        // que ya no se puede cobrar retroactivamente), la comparación es
+        // contra 0, no contra ese número negativo. Si no, un cliente ya
+        // corregido a 0 seguiría marcado para siempre.
+        const diferencia = (p.credits || 0) - Math.max(0, saldoEsperado);
 
         if (diferencia !== 0) {
           resultado.push({ ...p, totalRecargas, totalCanjes, saldoEsperado, diferencia });
@@ -371,20 +384,20 @@ const Admin = ({ session }) => {
     }
   };
 
-  const handleToggleClienteEspecial = async (userId, valorActual) => {
+  const handleToggleMarcaCliente = async (campo, userId, valorActual) => {
     setActualizandoEspecialId(userId);
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ cliente_especial: !valorActual })
+        .update({ [campo]: !valorActual })
         .eq('id', userId);
 
       if (error) throw error;
 
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, cliente_especial: !valorActual } : u));
-      if (selectedUser?.id === userId) setSelectedUser(prev => ({ ...prev, cliente_especial: !valorActual }));
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, [campo]: !valorActual } : u));
+      if (selectedUser?.id === userId) setSelectedUser(prev => ({ ...prev, [campo]: !valorActual }));
     } catch (error) {
-      alert('Error al actualizar cliente especial: ' + error.message);
+      alert('Error al actualizar el cliente: ' + error.message);
     } finally {
       setActualizandoEspecialId(null);
     }
@@ -573,8 +586,6 @@ const Admin = ({ session }) => {
 
   // Mismo informe que el botón "Descargar info archivos" de la sección Archivos:
   // toda la info de cada solicitud (sin los archivos en sí), disponible también acá.
-  const formatearFechaArchivo = (valor) => valor ? new Date(valor).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : '';
-
   const handleExportarInformeArchivos = async () => {
     setExportandoInformeArchivos(true);
     try {
@@ -590,61 +601,7 @@ const Admin = ({ session }) => {
 
       if (error) throw error;
 
-      const filas = (archivos || []).map(a => {
-        const dt = a.detalles_tecnicos || {};
-        return {
-          'N° Orden': a.numero_orden || '',
-          'ID Solicitud': a.id,
-          'Nombre completo cliente': `${a.profiles?.full_name || ''} ${a.profiles?.apellido || ''}`.trim(),
-          'Empresa': a.profiles?.company || 'PARTICULAR',
-          'Correo cliente': a.profiles?.email || '',
-          'Teléfono cliente': a.profiles?.phone || '',
-          'RUT cliente': a.profiles?.rut || '',
-          'Actividad cliente': a.profiles?.actividad || '',
-          'País cliente': a.profiles?.country || '',
-          'Fecha de nacimiento cliente': a.profiles?.fecha_nacimiento || '',
-          'Créditos actuales del cliente': a.profiles?.credits ?? '',
-          'Cuenta aprobada': a.profiles?.is_approved ? 'Sí' : 'No',
-          'Cliente especial': a.profiles?.cliente_especial ? 'Sí' : 'No',
-          'Descuento del cliente (%)': a.profiles?.descuento_porcentaje ?? 0,
-          'Aprobado por': a.profiles?.approved_by || '',
-          'Fecha de aprobación del cliente': formatearFechaArchivo(a.profiles?.approved_at),
-          'Patente': a.patente || '',
-          'Marca / Modelo': a.marca_modelo || '',
-          'Año': dt.anio || '',
-          'Motor': dt.motor || '',
-          'HP': dt.hp || '',
-          'Combustible': dt.combustible || '',
-          'ECU': dt.ecu || '',
-          'Tipo de módulo': dt.tipo_modulo || '',
-          'Servicio solicitado': dt.servicios_solicitados || '',
-          'Programa Modificador': a.programa_modificador || '',
-          'Centralita / ECU / TCU': a.centralita_ecu_tcu || '',
-          'Créditos (costo)': dt.costo_creditos ?? '',
-          'Comentarios del cliente': dt.comentarios || '',
-          'Estado actual': a.estado || '',
-          'Fecha y hora de solicitud': formatearFechaArchivo(a.created_at),
-          'Fecha y hora "en gestión"': formatearFechaArchivo(a.en_gestion_at),
-          'Admin que puso "en gestión"': a.en_gestion_by || '',
-          'Fecha y hora envío MOD': formatearFechaArchivo(a.mod_uploaded_at),
-          'Admin que subió MOD': a.mod_uploaded_by || '',
-          'Fecha y hora envío V2': formatearFechaArchivo(a.mod_extra_uploaded_at),
-          'Admin que subió V2': a.mod_extra_uploaded_by || '',
-          'Fecha y hora envío V3': formatearFechaArchivo(a.mod_v3_uploaded_at),
-          'Admin que subió V3': a.mod_v3_uploaded_by || '',
-          'Notas de instalación (mensaje técnico)': a.notas_instalacion || '',
-          'Anexos adicionales del cliente': dt.archivos_adicionales?.length || 0
-        };
-      });
-
-      if (filas.length === 0) {
-        filas.push({ 'N° Orden': '', 'ID Solicitud': 'Sin solicitudes registradas' });
-      }
-
-      const wb = XLSX.utils.book_new();
-      const hoja = XLSX.utils.json_to_sheet(filas);
-      hoja['!cols'] = Object.keys(filas[0]).map(() => ({ wch: 22 }));
-      XLSX.utils.book_append_sheet(wb, hoja, 'Solicitudes');
+      const wb = crearLibroInforme(XLSX, archivos || [], { separarPorMes: true });
 
       const fechaHoy = new Date().toISOString().slice(0, 10);
       XLSX.writeFile(wb, `informe_archivos_${fechaHoy}.xlsx`);
@@ -687,8 +644,12 @@ const Admin = ({ session }) => {
     });
   }, [movimientos, selectedUser?.credits]);
 
+  // La página muestra solo clientes aprobados: los pendientes se gestionan en
+  // Clientes → Solicitudes. "users" sigue con todos para el Excel de clientes.
+  const usuariosAprobados = users.filter(u => u.is_approved === true);
+
   // --- LÓGICA DE FILTRADO Y PAGINACIÓN ---
-  const usersFiltrados = users
+  const usersFiltrados = usuariosAprobados
     .filter(u => {
       const searchLower = searchTerm.toLowerCase();
       return (
@@ -897,6 +858,94 @@ const Admin = ({ session }) => {
     ? (autoIsOpenNow ? 'Automático: online' : 'Automático: cerrado')
     : 'Bloqueado manualmente';
 
+  const renderTarjetaClientes = ({ campo, titulo, singular, plural, descripcion, busqueda, setBusqueda }) => (
+        <div id={`seccion-${campo}`} style={{
+          ...styles.contentCard,
+          border: `1.5px solid ${t.brand}`,
+          boxShadow: darkMode
+            ? `0 0 0 1px ${t.brand}33, 0 0 24px ${t.brand}30, 0 4px 20px rgba(0,0,0,0.3)`
+            : `0 0 0 1px ${t.brand}22, 0 0 20px ${t.brand}25, 0 1px 2px rgba(24,24,27,0.04)`
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <h3 style={{ margin: 0, fontSize: '14.5px', color: t.ink, fontWeight: 700 }}>{titulo}</h3>
+            <span style={{
+              fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px',
+              backgroundColor: t.brandSoft, color: t.brand
+            }}>
+              {usuariosAprobados.filter(u => u[campo]).length} {usuariosAprobados.filter(u => u[campo]).length === 1 ? singular : plural}
+            </span>
+          </div>
+          <p style={{ margin: '0 0 16px', fontSize: '12px', color: t.inkFaint }}>
+            {descripcion}
+          </p>
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ ...styles.searchBar, flex: 1, minWidth: '220px' }}>
+              <Icon.Search style={{ color: t.inkFaint }} />
+              <input
+                className="admin-search-input"
+                placeholder="Buscar cliente por email o nombre..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                style={{ border: 'none', outline: 'none', background: 'transparent', width: '100%', fontSize: '13px', color: t.ink }}
+              />
+            </div>
+            <button
+              type="button"
+              className="admin-refresh"
+              onClick={() => setSoloMarcados(prev => ({ ...prev, [campo]: !prev[campo] }))}
+              style={{
+                ...styles.refreshBtn(false),
+                padding: '11px 16px',
+                ...(soloMarcados[campo] && { backgroundColor: t.brand, color: '#ffffff', borderColor: t.brand })
+              }}
+            >
+              {soloMarcados[campo] ? 'Ver todos' : `Ver seleccionados (${usuariosAprobados.filter(u => u[campo]).length})`}
+            </button>
+          </div>
+
+          <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
+            {usuariosAprobados
+              .filter(u => !soloMarcados[campo] || u[campo])
+              .filter(u => {
+                const term = busqueda.toLowerCase();
+                return u.email?.toLowerCase().includes(term) || u.full_name?.toLowerCase().includes(term);
+              })
+              .map(u => (
+                <label
+                  key={u.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 8px',
+                    borderBottom: `1px solid ${t.line}`, cursor: 'pointer', fontSize: '13px'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!u[campo]}
+                    disabled={actualizandoEspecialId === u.id}
+                    onChange={() => handleToggleMarcaCliente(campo, u.id, u[campo])}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: t.brand }}
+                  />
+                  <span style={{ color: t.ink, fontWeight: 600 }}>{u.full_name || 'Sin nombre'}</span>
+                  <span style={{ color: t.inkFaint }}>{u.email}</span>
+                </label>
+              ))}
+            {usuariosAprobados.length === 0 && !loading && (
+              <div style={styles.emptyState}>
+                <Icon.Inbox />
+                <span>No hay clientes aprobados todavía.</span>
+              </div>
+            )}
+            {usuariosAprobados.length > 0 && soloMarcados[campo] && !usuariosAprobados.some(u => u[campo]) && (
+              <div style={styles.emptyState}>
+                <Icon.Inbox />
+                <span>Todavía no hay {plural} seleccionados.</span>
+              </div>
+            )}
+          </div>
+        </div>
+  );
+
   return (
     <div style={styles.main}>
       <style>{`
@@ -914,10 +963,25 @@ const Admin = ({ session }) => {
         .admin-search-input::placeholder { color: ${darkMode ? '#475569' : '#a1a1aa'}; }
       `}</style>
 
+      <ModalClaveInforme
+        abierto={descargaPorConfirmar !== null}
+        darkMode={darkMode}
+        descripcion={descargaPorConfirmar === 'clientes'
+          ? 'Ingresa la contraseña para descargar la información de todos los clientes.'
+          : 'Ingresa la contraseña para descargar el informe de archivos.'}
+        onCancelar={() => setDescargaPorConfirmar(null)}
+        onVerificada={() => {
+          const descarga = descargaPorConfirmar;
+          setDescargaPorConfirmar(null);
+          if (descarga === 'clientes') handleExportarTodoExcel();
+          else handleExportarInformeArchivos();
+        }}
+      />
+
       <div style={styles.topBar}>
         <button
           className="admin-refresh"
-          onClick={handleExportarTodoExcel}
+          onClick={() => setDescargaPorConfirmar('clientes')}
           disabled={exportandoTodo}
           style={{ ...styles.refreshBtn(exportandoTodo), marginRight: '10px' }}
         >
@@ -926,7 +990,7 @@ const Admin = ({ session }) => {
         </button>
         <button
           className="admin-refresh"
-          onClick={handleExportarInformeArchivos}
+          onClick={() => setDescargaPorConfirmar('archivos')}
           disabled={exportandoInformeArchivos}
           title="Descarga un Excel con toda la información de cada solicitud de archivo (sin los archivos)"
           style={{ ...styles.refreshBtn(exportandoInformeArchivos), marginRight: '10px' }}
@@ -948,8 +1012,42 @@ const Admin = ({ session }) => {
         </button>
       </div>
 
+      {/* ACCESO RÁPIDO: salta directo a cada sección de la página */}
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', padding: '16px 30px 0' }}>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: t.inkFaint, textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: '4px' }}>
+          Acceso rápido
+        </span>
+        {[
+          { id: 'seccion-usuarios', etiqueta: 'Usuarios y créditos', cantidad: usuariosAprobados.length },
+          { id: 'seccion-cliente_especial', etiqueta: 'Clientes especiales', cantidad: usuariosAprobados.filter(u => u.cliente_especial).length },
+          { id: 'seccion-paga_iva', etiqueta: 'Clientes especiales IVA', cantidad: usuariosAprobados.filter(u => u.paga_iva).length },
+          { id: 'seccion-descuadres', etiqueta: 'Descuadres', cantidad: descuadres.length },
+          { id: 'seccion-administradores', etiqueta: 'Administradores', cantidad: null }
+        ].map(acceso => (
+          <button
+            key={acceso.id}
+            type="button"
+            className="admin-refresh"
+            onClick={() => document.getElementById(acceso.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            style={styles.refreshBtn(false)}
+          >
+            {acceso.etiqueta}
+            {acceso.cantidad !== null && (
+              <span style={{
+                fontSize: '11px', fontWeight: 700, padding: '1px 8px', borderRadius: '999px',
+                // En modo oscuro el botón ya es azul: la pastilla va oscura para que el número resalte.
+                backgroundColor: darkMode ? '#0f172a' : t.brand,
+                color: '#ffffff'
+              }}>
+                {acceso.cantidad}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* ADMINISTRADORES: quién tiene acceso a qué */}
-      <div style={styles.contentCard}>
+      <div id="seccion-administradores" style={styles.contentCard}>
         <h3 style={{ margin: '0 0 4px', fontSize: '14.5px', color: t.ink, fontWeight: 700 }}>Administradores</h3>
         <p style={{ margin: '0 0 16px', fontSize: '12px', color: t.inkFaint }}>
           Correos con permisos especiales dentro del portal y a qué secciones tiene acceso cada uno.
@@ -1035,7 +1133,7 @@ const Admin = ({ session }) => {
         </div>
       </div>
 
-      <div style={styles.contentCard}>
+      <div id="seccion-usuarios" style={styles.contentCard}>
         <h2 style={styles.cardTitle}>Usuarios y créditos</h2>
 
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1158,7 +1256,7 @@ const Admin = ({ session }) => {
         )}
       </div>
 
-      <div style={styles.contentCard}>
+      <div id="seccion-descuadres" style={styles.contentCard}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '10px' }}>
           <h2 style={{ ...styles.cardTitle, margin: 0 }}>Clientes con descuadre de créditos</h2>
           <button
@@ -1227,70 +1325,25 @@ const Admin = ({ session }) => {
       </div>
 
       {/* CLIENTES ESPECIALES: precios fijos en DPF/EGR/ADBLUE */}
-      <div style={{
-        ...styles.contentCard,
-        border: `1.5px solid ${t.brand}`,
-        boxShadow: darkMode
-          ? `0 0 0 1px ${t.brand}33, 0 0 24px ${t.brand}30, 0 4px 20px rgba(0,0,0,0.3)`
-          : `0 0 0 1px ${t.brand}22, 0 0 20px ${t.brand}25, 0 1px 2px rgba(24,24,27,0.04)`
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-          <h3 style={{ margin: 0, fontSize: '14.5px', color: t.ink, fontWeight: 700 }}>Clientes especiales</h3>
-          <span style={{
-            fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px',
-            backgroundColor: t.brandSoft, color: t.brand
-          }}>
-            {users.filter(u => u.cliente_especial).length} {users.filter(u => u.cliente_especial).length === 1 ? 'cliente especial' : 'clientes especiales'}
-          </span>
-        </div>
-        <p style={{ margin: '0 0 16px', fontSize: '12px', color: t.inkFaint }}>
-          Los clientes marcados acceden a precio fijo en DPF OFF, EGR OFF, DPF+EGR OFF y DPF+EGR+ADBLUE OFF, tanto en el Simulador como al subir un archivo.
-        </p>
+      {renderTarjetaClientes({
+        campo: 'cliente_especial',
+        titulo: 'Clientes especiales',
+        singular: 'cliente especial',
+        plural: 'clientes especiales',
+        descripcion: 'Los clientes marcados acceden a precio fijo en DPF OFF, EGR OFF, DPF+EGR OFF y DPF+EGR+ADBLUE OFF, tanto en el Simulador como al subir un archivo.',
+        busqueda: searchEspeciales,
+        setBusqueda: setSearchEspeciales
+      })}
 
-        <div style={styles.searchBar}>
-          <Icon.Search style={{ color: t.inkFaint }} />
-          <input
-            className="admin-search-input"
-            placeholder="Buscar cliente por email o nombre..."
-            value={searchEspeciales}
-            onChange={(e) => setSearchEspeciales(e.target.value)}
-            style={{ border: 'none', outline: 'none', background: 'transparent', width: '100%', fontSize: '13px', color: t.ink }}
-          />
-        </div>
-
-        <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
-          {users
-            .filter(u => {
-              const term = searchEspeciales.toLowerCase();
-              return u.email?.toLowerCase().includes(term) || u.full_name?.toLowerCase().includes(term);
-            })
-            .map(u => (
-              <label
-                key={u.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 8px',
-                  borderBottom: `1px solid ${t.line}`, cursor: 'pointer', fontSize: '13px'
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={!!u.cliente_especial}
-                  disabled={actualizandoEspecialId === u.id}
-                  onChange={() => handleToggleClienteEspecial(u.id, u.cliente_especial)}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: t.brand }}
-                />
-                <span style={{ color: t.ink, fontWeight: 600 }}>{u.full_name || 'Sin nombre'}</span>
-                <span style={{ color: t.inkFaint }}>{u.email}</span>
-              </label>
-            ))}
-          {users.length === 0 && !loading && (
-            <div style={styles.emptyState}>
-              <Icon.Inbox />
-              <span>No hay clientes cargados todavía.</span>
-            </div>
-          )}
-        </div>
-      </div>
+      {renderTarjetaClientes({
+        campo: 'paga_iva',
+        titulo: 'Clientes especiales IVA',
+        singular: 'cliente con IVA',
+        plural: 'clientes con IVA',
+        descripcion: 'A los clientes marcados se les cobra cada crédito con IVA incluido: $11.900 en vez de $10.000.',
+        busqueda: searchIva,
+        setBusqueda: setSearchIva
+      })}
 
       {selectedUser && (
         <div style={styles.modalOverlay} onClick={() => setSelectedUser(null)}>
@@ -1317,7 +1370,7 @@ const Admin = ({ session }) => {
               <div>
                 <p style={{ fontSize: '10px', color: t.inkFaint, margin: 0, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Aprobado por</p>
                 <p style={{ fontSize: '14px', margin: '6px 0 15px', color: t.ink, borderBottom: `1px solid ${t.line}`, paddingBottom: '8px' }}>
-                  {selectedUser.approved_by || (selectedUser.is_approved ? 'Sin registro (aprobado antes de este cambio)' : '—')}
+                  {selectedUser.approved_by || (selectedUser.is_approved ? 'Sin registro (aprobado antes de este cambio)' : 'Pendiente de aprobación')}
                 </p>
               </div>
               <div>

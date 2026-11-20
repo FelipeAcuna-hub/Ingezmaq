@@ -164,6 +164,7 @@ const Layout = ({ session }) => {
   const [status, setStatus] = useState({ is_online: true, mensaje: 'CARGANDO ESTADO...' });
   const [ticketCount, setTicketCount] = useState(0);
   const [fileCount, setFileCount] = useState(0); // 🔴 ESTADO PARA NOTIFICACIÓN DE ARCHIVOS
+  const [clientesPendientesCount, setClientesPendientesCount] = useState(0);
   const [perfilIncompleto, setPerfilIncompleto] = useState(false);
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -222,6 +223,30 @@ const Layout = ({ session }) => {
       console.error("Error calculando notificaciones de archivos:", err);
     }
   }, [session?.user?.id, isArchivosAdmin]);
+
+  // 👥 NOTIFICACIÓN DE CLIENTES: solicitudes de registro por aprobar (lo mismo
+  // que la pestaña "Solicitudes" de /clientes: sin aprobar y no eliminadas).
+  const fetchClientesPendientesCount = useCallback(async () => {
+    if (!canAccessClientes) return;
+    const { count, error } = await supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .not('is_approved', 'is', true)
+      .is('eliminado_at', null);
+    if (!error) setClientesPendientesCount(count || 0);
+  }, [canAccessClientes]);
+
+  // Se refresca al cambiar de página, cada minuto, y cuando Clientes avisa que
+  // aprobó o rechazó a alguien.
+  useEffect(() => {
+    fetchClientesPendientesCount();
+    const intervalo = setInterval(fetchClientesPendientesCount, 60000);
+    window.addEventListener('clientes-actualizados', fetchClientesPendientesCount);
+    return () => {
+      clearInterval(intervalo);
+      window.removeEventListener('clientes-actualizados', fetchClientesPendientesCount);
+    };
+  }, [fetchClientesPendientesCount, location.pathname]);
 
   // 🛠️ NOTIFICACIÓN DE TICKETS
   const fetchPendingTicketsCount = useCallback(async () => {
@@ -583,6 +608,7 @@ const Layout = ({ session }) => {
               onClick={() => setIsMenuOpen(false)}
               activeStyle={styles.navItemActive}
               inactiveStyle={styles.navItem}
+              badgeCount={clientesPendientesCount}
             />
           )}
 

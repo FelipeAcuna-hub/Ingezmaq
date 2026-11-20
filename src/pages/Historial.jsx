@@ -256,7 +256,10 @@ const Historial = ({ session }) => {
       const saldoEsperado = totalRecargas - totalGastos - totalCanjes;
       const creditsReal = movimientos.find(m => m.user_id === userId)?.profiles?.credits
         ?? canjes.find(c => c.perfil_id === userId)?.profiles?.credits ?? 0;
-      resultado[userId] = creditsReal - saldoEsperado;
+      // El saldo real nunca es negativo: si "esperado" da negativo (canjeó
+      // más de lo que recargó), se compara contra 0, no contra ese negativo
+      // — si no, un cliente ya corregido a 0 quedaría marcado para siempre.
+      resultado[userId] = creditsReal - Math.max(0, saldoEsperado);
     }
     return resultado;
   }, [movimientos, canjes]);
@@ -502,7 +505,7 @@ const Historial = ({ session }) => {
       color: tokens.brand,
       fontVariantNumeric: 'tabular-nums'
     },
-    pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '22px' },
+    pagination: { display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: '6px', marginTop: '22px' },
     pageBtn: (active) => ({
       minWidth: '30px',
       height: '30px',
@@ -551,6 +554,22 @@ const Historial = ({ session }) => {
     }
   };
 
+  // Con muchas páginas se muestran solo la primera, la última y las vecinas de
+  // la actual; null marca un salto ("…"). Ej.: 1 … 9 10 11 … 45
+  const paginasVisibles = (current, total) => {
+    const vecinas = 1;
+    const paginas = [];
+    for (let n = 1; n <= total; n++) {
+      if (n === 1 || n === total || Math.abs(n - current) <= vecinas) {
+        paginas.push(n);
+      } else if (paginas[paginas.length - 1] !== null) {
+        paginas.push(null);
+      }
+    }
+    // Un salto que oculta una sola página no ahorra espacio: se muestra el número.
+    return paginas.map((n, i) => (n === null && paginas[i + 1] - paginas[i - 1] === 2 ? paginas[i - 1] + 1 : n));
+  };
+
   const renderPagination = (current, total, setPage) => (
     total > 1 && (
       <div style={styles.pagination}>
@@ -562,10 +581,14 @@ const Historial = ({ session }) => {
         >
           <ChevronLeft size={15} />
         </button>
-        {[...Array(total).keys()].map(n => (
-          <button key={n + 1} onClick={() => setPage(n + 1)} style={styles.pageBtn(current === n + 1)}>
-            {n + 1}
-          </button>
+        {paginasVisibles(current, total).map((n, i) => (
+          n === null ? (
+            <span key={`salto-${i}`} style={{ color: tokens.inkFaint, fontSize: '12px', padding: '0 2px' }}>…</span>
+          ) : (
+            <button key={n} onClick={() => setPage(n)} style={styles.pageBtn(current === n)}>
+              {n}
+            </button>
+          )
         ))}
         <button
           onClick={() => setPage(p => Math.min(total, p + 1))}

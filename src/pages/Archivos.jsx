@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { crearLibroInforme, nombreCliente, nombrePestanaMes } from '../utils/informeArchivos';
+import ModalClaveInforme from '../components/ModalClaveInforme';
 
 const Archivos = ({ session }) => {
   const [archivos, setArchivos] = useState([]);
@@ -14,7 +16,9 @@ const Archivos = ({ session }) => {
   const [paginaActual, setPaginaActual] = useState(1);
   const [itemsPorPagina] = useState(8);
   const [statusFilter, setStatusFilter] = useState('todos');
-  const [exportandoInforme, setExportandoInforme] = useState(false);
+  const [exportandoInforme, setExportandoInforme] = useState(null);
+  // Botón de informe que espera la contraseña antes de descargar.
+  const [informePorConfirmar, setInformePorConfirmar] = useState(null);
 
   const { darkMode } = useOutletContext();
 
@@ -29,6 +33,12 @@ const Archivos = ({ session }) => {
   const isAdmin =
     session?.user?.user_metadata?.role === 'admin' ||
     ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
+
+  // El informe descargable trae datos personales de todos los clientes: solo
+  // para los admins completos (alientechchile gestiona archivos, pero no lo descarga).
+  const puedeDescargarInforme = ADMIN_EMAILS
+    .filter(email => email !== 'alientechchile@gmail.com')
+    .includes(session?.user?.email?.toLowerCase());
 
   const fetchArchivos = async () => {
     try {
@@ -62,78 +72,62 @@ const Archivos = ({ session }) => {
   }, [session, isAdmin]);
 
   // --- INFORME DESCARGABLE (SOLO ADMIN): toda la info de cada solicitud, sin los archivos en sí ---
-  const formatearFecha = (valor) => valor ? new Date(valor).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : '';
+  // Primer instante del mes en hora local: 0 = mes actual, -1 = mes anterior.
+  // Date ajusta solo el cambio de año (en enero, -1 es diciembre del año pasado).
+  const inicioMes = (desplazamiento) => {
+    const hoy = new Date();
+    return new Date(hoy.getFullYear(), hoy.getMonth() + desplazamiento, 1);
+  };
+  const nombreMes = (fecha) => fecha.toLocaleString('es-CL', { month: 'long' });
 
-  const handleExportarInforme = async () => {
-    setExportandoInforme(true);
+  const botonesInforme = [
+    {
+      clave: 'todo',
+      mes: null,
+      etiqueta: 'Descargar info archivos',
+      descripcion: 'Descarga un Excel con toda la información de cada solicitud (sin los archivos)'
+    },
+    ...[
+      { clave: 'mes_actual', mes: 0 },
+      { clave: 'mes_anterior', mes: -1 }
+    ].map(boton => {
+      const mes = nombreMes(inicioMes(boton.mes));
+      return {
+        ...boton,
+        etiqueta: `Descargar ${mes}`,
+        descripcion: `Descarga un Excel con las solicitudes creadas en ${mes} (sin los archivos)`
+      };
+    })
+  ];
+
+  const handleExportarInforme = async ({ clave, mes }) => {
+    if (!puedeDescargarInforme) return;
+    setExportandoInforme(clave);
     try {
       const XLSX = await import('xlsx');
 
-      const filas = archivos
-        .slice()
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .map(a => {
-          const dt = a.detalles_tecnicos || {};
-          return {
-            'N° Orden': a.numero_orden || '',
-            'ID Solicitud': a.id,
-            'Nombre completo cliente': `${a.profiles?.full_name || ''} ${a.profiles?.apellido || ''}`.trim(),
-            'Empresa': a.profiles?.company || 'PARTICULAR',
-            'Correo cliente': a.profiles?.email || '',
-            'Teléfono cliente': a.profiles?.phone || '',
-            'RUT cliente': a.profiles?.rut || '',
-            'Actividad cliente': a.profiles?.actividad || '',
-            'País cliente': a.profiles?.country || '',
-            'Fecha de nacimiento cliente': a.profiles?.fecha_nacimiento || '',
-            'Créditos actuales del cliente': a.profiles?.credits ?? '',
-            'Cuenta aprobada': a.profiles?.is_approved ? 'Sí' : 'No',
-            'Cliente especial': a.profiles?.cliente_especial ? 'Sí' : 'No',
-            'Descuento del cliente (%)': a.profiles?.descuento_porcentaje ?? 0,
-            'Aprobado por': a.profiles?.approved_by || '',
-            'Fecha de aprobación del cliente': formatearFecha(a.profiles?.approved_at),
-            'Patente': a.patente || '',
-            'Marca / Modelo': a.marca_modelo || '',
-            'Año': dt.anio || '',
-            'Motor': dt.motor || '',
-            'HP': dt.hp || '',
-            'Combustible': dt.combustible || '',
-            'ECU': dt.ecu || '',
-            'Tipo de módulo': dt.tipo_modulo || '',
-            'Servicio solicitado': dt.servicios_solicitados || '',
-            'Programa Modificador': a.programa_modificador || '',
-            'Centralita / ECU / TCU': a.centralita_ecu_tcu || '',
-            'Créditos (costo)': dt.costo_creditos ?? '',
-            'Comentarios del cliente': dt.comentarios || '',
-            'Estado actual': a.estado || '',
-            'Fecha y hora de solicitud': formatearFecha(a.created_at),
-            'Fecha y hora "en gestión"': formatearFecha(a.en_gestion_at),
-            'Admin que puso "en gestión"': a.en_gestion_by || '',
-            'Fecha y hora envío MOD': formatearFecha(a.mod_uploaded_at),
-            'Admin que subió MOD': a.mod_uploaded_by || '',
-            'Fecha y hora envío V2': formatearFecha(a.mod_extra_uploaded_at),
-            'Admin que subió V2': a.mod_extra_uploaded_by || '',
-            'Fecha y hora envío V3': formatearFecha(a.mod_v3_uploaded_at),
-            'Admin que subió V3': a.mod_v3_uploaded_by || '',
-            'Notas de instalación (mensaje técnico)': a.notas_instalacion || '',
-            'Anexos adicionales del cliente': dt.archivos_adicionales?.length || 0
-          };
-        });
+      const desde = mes === null ? null : inicioMes(mes);
+      const hasta = mes === null ? null : inicioMes(mes + 1);
 
-      if (filas.length === 0) {
-        filas.push({ 'N° Orden': '', 'ID Solicitud': 'Sin solicitudes registradas' });
-      }
+      const seleccionados = archivos.filter(a => {
+        if (!desde) return true;
+        const creado = new Date(a.created_at);
+        return creado >= desde && creado < hasta;
+      });
 
-      const wb = XLSX.utils.book_new();
-      const hoja = XLSX.utils.json_to_sheet(filas);
-      hoja['!cols'] = Object.keys(filas[0]).map(() => ({ wch: 22 }));
-      XLSX.utils.book_append_sheet(wb, hoja, 'Solicitudes');
+      // El informe completo trae además una pestaña por mes; el de un mes, una sola hoja con su nombre.
+      const wb = crearLibroInforme(XLSX, seleccionados, desde
+        ? { nombreHoja: nombrePestanaMes(desde) }
+        : { separarPorMes: true });
 
-      const fechaHoy = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `informe_archivos_${fechaHoy}.xlsx`);
+      const sufijo = desde
+        ? `${nombreMes(desde)}_${desde.getFullYear()}`
+        : new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `informe_archivos_${sufijo}.xlsx`);
     } catch (error) {
       alert('Error al generar el informe: ' + error.message);
     } finally {
-      setExportandoInforme(false);
+      setExportandoInforme(null);
     }
   };
 
@@ -538,30 +532,41 @@ const Archivos = ({ session }) => {
 
   return (
     <div style={styles.mainContent}>
+      <ModalClaveInforme
+        abierto={informePorConfirmar !== null}
+        darkMode={darkMode}
+        onCancelar={() => setInformePorConfirmar(null)}
+        onVerificada={() => {
+          const boton = informePorConfirmar;
+          setInformePorConfirmar(null);
+          handleExportarInforme(boton);
+        }}
+      />
       <div style={styles.tableCard}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <div style={{ backgroundColor: '#2563eb', color: 'white', padding: '5px 12px', fontSize: '10px', fontWeight: 'bold' }}>
               {isAdmin ? "MODO ADMINISTRADOR" : "PORTAL OFICIAL"}
             </div>
-            {isAdmin && (
+            {puedeDescargarInforme && botonesInforme.map(boton => (
               <button
-                onClick={handleExportarInforme}
-                disabled={exportandoInforme}
-                title="Descarga un Excel con toda la información de cada solicitud (sin los archivos)"
+                key={boton.clave}
+                onClick={() => setInformePorConfirmar(boton)}
+                disabled={exportandoInforme !== null}
+                title={boton.descripcion}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '6px',
                   backgroundColor: darkMode ? '#1e293b' : '#fff',
                   color: darkMode ? '#ffffff' : '#000',
                   border: darkMode ? '1px solid #334155' : '1px solid #ddd',
                   padding: '6px 12px', fontSize: '10px', fontWeight: 'bold',
-                  borderRadius: '4px', cursor: exportandoInforme ? 'default' : 'pointer',
-                  opacity: exportandoInforme ? 0.6 : 1, textTransform: 'uppercase'
+                  borderRadius: '4px', cursor: exportandoInforme !== null ? 'default' : 'pointer',
+                  opacity: exportandoInforme !== null ? 0.6 : 1, textTransform: 'uppercase'
                 }}
               >
-                📊 {exportandoInforme ? 'Generando...' : 'Descargar info archivos'}
+                📊 {exportandoInforme === boton.clave ? 'Generando...' : boton.etiqueta}
               </button>
-            )}
+            ))}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -641,7 +646,16 @@ const Archivos = ({ session }) => {
                     </div>
                   </td>
 
-                  {isAdmin && <td style={{ ...styles.td, fontWeight: 'bold', color: '#2563eb' }}>{archivo.profiles?.company || 'PARTICULAR'}</td>}
+                  {isAdmin && (
+                    <td style={{ ...styles.td, fontWeight: 'bold', color: '#2563eb' }}>
+                      {nombreCliente(archivo.profiles) && (
+                        <div style={{ color: darkMode ? '#ffffff' : '#000000', marginBottom: '2px' }}>
+                          {nombreCliente(archivo.profiles)}
+                        </div>
+                      )}
+                      <div>{archivo.profiles?.company || 'PARTICULAR'}</div>
+                    </td>
+                  )}
                   {isAdmin && (
                     <td style={{ ...styles.td, fontSize: '11px', color: darkMode ? '#cbd5e1' : '#555' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>

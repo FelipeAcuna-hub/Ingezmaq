@@ -2,6 +2,7 @@ const { MercadoPagoConfig, Preference } = require('mercadopago');
 const { createClient } = require('@supabase/supabase-js');
 
 const UNIT_PRICE_CLP = 10000;
+const UNIT_PRICE_CON_IVA_CLP = 11900; // 10.000 + 19% de IVA
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -38,7 +39,7 @@ exports.handler = async (event) => {
   const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
   const { data: perfil, error: perfilErr } = await supabaseAdmin
     .from('profiles')
-    .select('is_approved, email, full_name, phone, rut')
+    .select('is_approved, email, full_name, phone, rut, paga_iva')
     .eq('id', userId)
     .single();
 
@@ -75,9 +76,9 @@ exports.handler = async (event) => {
       items: [
         {
           id: 'creditos-chiptuning',
-          title: 'Créditos Chiptuning',
+          title: perfil.paga_iva ? 'Créditos Chiptuning (IVA incluido)' : 'Créditos Chiptuning',
           quantity: qty,
-          unit_price: UNIT_PRICE_CLP,
+          unit_price: perfil.paga_iva ? UNIT_PRICE_CON_IVA_CLP : UNIT_PRICE_CLP,
           currency_id: 'CLP',
         },
       ],

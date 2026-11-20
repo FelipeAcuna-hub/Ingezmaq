@@ -48,6 +48,7 @@ const Tickets = ({ session }) => {
     const { data, error } = await supabase
       .from('profiles')
       .select('id, email, company, full_name')
+      .is('eliminado_at', null)
       .order('email', { ascending: true });
 
     if (!error && data) {

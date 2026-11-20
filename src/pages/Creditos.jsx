@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
 // --- ICONOS SVG EN LÍNEA (sin dependencias externas) ---
 const Icon = {
@@ -47,6 +48,21 @@ const Creditos = ({ session }) => {
 
   // Estado para la cantidad de créditos personalizada ingresada por el usuario
   const [customQty, setCustomQty] = useState('');
+
+  // Solo para mostrar el precio: el monto real lo fija create-preference en el servidor.
+  const [pagaIva, setPagaIva] = useState(false);
+  const precioCredito = pagaIva ? 11900 : 10000;
+  const textoIva = pagaIva ? ' · IVA incluido' : '';
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    supabase
+      .from('profiles')
+      .select('paga_iva')
+      .eq('id', session.user.id)
+      .maybeSingle()
+      .then(({ data }) => setPagaIva(!!data?.paga_iva));
+  }, [session?.user?.id]);
 
   // Obtener el estado del tema desde el layout superior
   const { darkMode } = useOutletContext();
@@ -250,7 +266,7 @@ const Creditos = ({ session }) => {
   };
 
   // Cálculo del total para el input personalizado
-  const customAmount = customQty ? parseInt(customQty) * 10000 : 0;
+  const customAmount = customQty ? parseInt(customQty) * precioCredito : 0;
   const isCustomLoading = loading && loadingQty === parseInt(customQty);
 
   return (
@@ -391,7 +407,7 @@ const Creditos = ({ session }) => {
             />
             {customAmount > 0 && (
               <span style={styles.customPriceLabel}>
-                = ${customAmount.toLocaleString('es-CL')} <span style={{ fontSize: '12px', color: t.inkFaint, fontWeight: 'normal' }}>CLP</span>
+                = ${customAmount.toLocaleString('es-CL')} <span style={{ fontSize: '12px', color: t.inkFaint, fontWeight: 'normal' }}>CLP{textoIva}</span>
               </span>
             )}
           </div>
@@ -430,10 +446,10 @@ const Creditos = ({ session }) => {
               </div>
 
               <div style={styles.qtyLabel}>{qty} créditos</div>
-              <div style={styles.unitPrice}>${(10000).toLocaleString('es-CL')} por crédito</div>
+              <div style={styles.unitPrice}>${precioCredito.toLocaleString('es-CL')} por crédito</div>
 
-              <div style={styles.price}>${(qty * 10000).toLocaleString('es-CL')}</div>
-              <div style={styles.priceSub}>Pago único · CLP</div>
+              <div style={styles.price}>${(qty * precioCredito).toLocaleString('es-CL')}</div>
+              <div style={styles.priceSub}>Pago único · CLP{textoIva}</div>
 
               <ul style={styles.featureList}>
                 <li style={styles.featureItem}>

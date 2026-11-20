@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
 // Mismo listado usado en el frontend (App.jsx / Clientes.jsx) para decidir
@@ -54,11 +55,69 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Falta userId' }) };
   }
 
+  const { data: perfil, error: perfilErr } = await supabaseAdmin
+    .from('profiles')
+    .select('is_approved, eliminado_at')
+    .eq('id', targetId)
+    .maybeSingle();
+
+  if (perfilErr) {
+    console.error('Error verificando cliente a eliminar', perfilErr);
+    return { statusCode: 500, body: JSON.stringify({ error: 'No se pudo verificar el cliente' }) };
+  }
+
+  // Una cuenta ya eliminada solo guarda el historial del cliente: nadie debe
+  // poder borrarla por esta vía.
+  if (perfil?.eliminado_at) {
+    return { statusCode: 409, body: JSON.stringify({ error: 'Este cliente ya fue eliminado' }) };
+  }
+
+  // RECHAZAR una solicitud y ELIMINAR un cliente usan esta misma función.
+  // Quien tiene acceso a Clientes sin ser admin completo (alientechchile) solo
+  // puede rechazar solicitudes pendientes, nunca borrar un cliente ya aprobado.
+  if (!ADMIN_EMAILS.includes(callerEmail) && (!perfil || perfil.is_approved === true)) {
+    return { statusCode: 403, body: JSON.stringify({ error: 'No tienes permisos para eliminar clientes activos' }) };
+  }
+
   try {
-    // Borrado real y completo: no solo la fila de profiles, sino todo lo que
-    // cuelga de este usuario y, al final, la cuenta de acceso en Supabase Auth.
-    // Así, si la persona quiere volver a entrar, tiene que registrarse de cero
-    // (nuevo id, nueva aprobación) — no le sirve su email/contraseña anterior.
+    const { count: totalArchivos, error: archivosErr } = await supabaseAdmin
+      .from('archivos')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', targetId);
+    if (archivosErr) throw archivosErr;
+
+    // Eliminar a un cliente solo le quita el acceso: su perfil y todo lo que
+    // cuelga de él siguen intactos. Se libera su correo cambiándolo en Auth,
+    // así puede registrarse de cero (cuenta nueva, nueva aprobación), y al
+    // aprobarlo se le traspasa este historial (ver recuperar-historial-cliente).
+    if (perfil && (perfil.is_approved === true || totalArchivos > 0)) {
+      const { error: authUpdErr } = await supabaseAdmin.auth.admin.updateUserById(targetId, {
+        email: `cuenta-eliminada+${targetId}@chiptuning.cl`,
+        email_confirm: true,
+        password: crypto.randomBytes(32).toString('hex'),
+        ban_duration: '876000h',
+      });
+      if (authUpdErr && authUpdErr.status !== 404) {
+        throw new Error('No se pudo quitar el acceso: ' + authUpdErr.message);
+      }
+
+      const { error: perfilUpdErr } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          is_approved: false,
+          eliminado_at: new Date().toISOString(),
+          eliminado_por: callerEmail,
+        })
+        .eq('id', targetId);
+      if (perfilUpdErr) {
+        throw new Error('Se quitó el acceso, pero no se pudo marcar el perfil: ' + perfilUpdErr.message);
+      }
+
+      return { statusCode: 200, body: JSON.stringify({ success: true, datosConservados: true }) };
+    }
+
+    // Solicitud rechazada que nunca llegó a tener archivos: borrado completo,
+    // no hay historial que conservar.
     //
     // Se borra explícitamente cada tabla relacionada (en vez de confiar en que
     // las Foreign Keys tengan ON DELETE CASCADE configurado) porque no todas

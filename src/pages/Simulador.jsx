@@ -83,16 +83,18 @@ const Simulador = ({ session }) => {
   const [categoriaSel, setCategoriaSel] = useState(null);
   const [servicioSel, setServicioSel] = useState(null);
   const [esClienteEspecial, setEsClienteEspecial] = useState(false);
+  const [pagaIva, setPagaIva] = useState(false);
 
   useEffect(() => {
     const fetchClienteEspecial = async () => {
       if (!session?.user?.id) return;
       const { data } = await supabase
         .from('profiles')
-        .select('cliente_especial')
+        .select('cliente_especial, paga_iva')
         .eq('id', session.user.id)
         .single();
       setEsClienteEspecial(!!data?.cliente_especial);
+      setPagaIva(!!data?.paga_iva);
     };
     fetchClienteEspecial();
   }, [session]);
@@ -296,7 +298,7 @@ const Simulador = ({ session }) => {
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <h3 style={styles.columnTitle}>3. TOTAL</h3>
           <div style={styles.infoBox}>
-            Total de créditos que se descontarán de tu cuenta. (1 Crédito = $10.000 CLP)
+            Total de créditos que se descontarán de tu cuenta. (1 Crédito = {pagaIva ? '$11.900 CLP con IVA incluido' : '$10.000 CLP'})
           </div>
           
           <div style={styles.totalBox}>

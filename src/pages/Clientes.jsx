@@ -25,6 +25,11 @@ const Clientes = ({ session }) => {
 
   const canAccessClientes = CLIENTES_ACCESS_EMAILS.includes(session?.user?.email?.toLowerCase());
 
+  // En "Clientes Activos" la única acción es eliminar, reservada a los admins
+  // completos. Sin ese permiso (alientechchile) la columna no se muestra.
+  const puedeEliminarActivos = ADMIN_EMAILS.includes(session?.user?.email?.toLowerCase());
+  const mostrarAcciones = tab === 'pendientes' || puedeEliminarActivos;
+
   const fetchClientes = async () => {
     try {
       setLoading(true);
@@ -34,6 +39,8 @@ const Clientes = ({ session }) => {
 
       if (error) throw error;
       setClientes(data || []);
+      // Avisa al menú lateral para que actualice el número de solicitudes pendientes.
+      window.dispatchEvent(new Event('clientes-actualizados'));
     } catch (error) {
       console.error("Error cargando clientes:", error.message);
     } finally {
@@ -45,9 +52,57 @@ const Clientes = ({ session }) => {
     fetchClientes();
   }, []);
 
+  // Las cuentas eliminadas siguen en profiles solo para conservar su historial.
+  const clientesVigentes = clientes.filter(c => !c.eliminado_at);
+
+  const normalizarRut = (rut) => (rut || '').replace(/[.\-\s]/g, '').toUpperCase();
+  const normalizarEmail = (email) => (email || '').trim().toLowerCase();
+
+  const cuentasAnteriores = (cliente) => clientes.filter(c => {
+    if (!c.eliminado_at || c.historial_recuperado_en) return false;
+    const mismoEmail = normalizarEmail(c.email) && normalizarEmail(c.email) === normalizarEmail(cliente?.email);
+    const mismoRut = normalizarRut(c.rut) && normalizarRut(c.rut) === normalizarRut(cliente?.rut);
+    return mismoEmail || mismoRut;
+  });
+
+  // Las acciones que requieren la clave de servicio corren en funciones de servidor.
+  const llamarFuncionServidor = async (nombre, datos) => {
+    const { data: { session: adminSession } } = await supabase.auth.getSession();
+    const token = adminSession?.access_token;
+    if (!token) throw new Error('No se pudo verificar tu sesión. Vuelve a iniciar sesión e intenta de nuevo.');
+
+    const res = await fetch(`/.netlify/functions/${nombre}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(datos),
+    });
+
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(result.error || 'No se pudo completar la acción.');
+    }
+    return result;
+  };
+
   // --- ACCIONES DE ADMINISTRADOR ---
   const handleAprobar = async (id, email) => {
     try {
+      const cliente = clientes.find(c => c.id === id);
+      const anteriores = cuentasAnteriores(cliente);
+
+      if (anteriores.length > 0 && window.confirm(
+        `Este cliente ya tuvo una cuenta eliminada (${anteriores.map(c => c.email).join(', ')}).\n\n` +
+        'ACEPTAR: aprobarlo y recuperar sus archivos, historial y créditos.\n' +
+        'CANCELAR: aprobarlo sin recuperar nada.'
+      )) {
+        for (const anterior of anteriores) {
+          await llamarFuncionServidor('recuperar-historial-cliente', { eliminadoId: anterior.id, nuevoId: id });
+        }
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -59,7 +114,6 @@ const Clientes = ({ session }) => {
 
       if (error) throw error;
 
-      const cliente = clientes.find(c => c.id === id);
       const nombre = cliente?.full_name || '';
 
       try {
@@ -108,31 +162,19 @@ const Clientes = ({ session }) => {
   };
 
   const handleEliminar = async (id) => {
-    if (window.confirm("¿Estás seguro de eliminar este registro? Esta acción no se puede deshacer: se borrará por completo, incluyendo su acceso a la plataforma. Si vuelve a querer entrar, deberá registrarse y ser aprobado desde cero.")) {
+    const esActivo = clientes.find(c => c.id === id)?.is_approved === true;
+    const mensajeConfirmacion = esActivo
+      ? "¿Estás seguro de eliminar a este cliente? Perderá su acceso a la plataforma, pero sus archivos e historial se conservan. Si quiere volver, deberá registrarse y ser aprobado desde cero, y al aprobarlo podrás recuperar su historial."
+      : "¿Estás seguro de rechazar esta solicitud? Se quitará su registro y, si quiere entrar, deberá registrarse y ser aprobado desde cero.";
+
+    if (window.confirm(mensajeConfirmacion)) {
       try {
-        // El borrado real (perfil + registros vinculados + cuenta de Auth) requiere
-        // la clave de servicio, así que corre en una función de servidor, no acá.
-        const { data: { session: adminSession } } = await supabase.auth.getSession();
-        const token = adminSession?.access_token;
-        if (!token) throw new Error('No se pudo verificar tu sesión. Vuelve a iniciar sesión e intenta de nuevo.');
+        const result = await llamarFuncionServidor('delete-client', { userId: id });
 
-        const res = await fetch('/.netlify/functions/delete-client', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ userId: id }),
-        });
-
-        const result = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(result.error || 'No se pudo eliminar el registro.');
-        }
-
-        // Actualizamos el estado local de inmediato
-        setClientes(prevClientes => prevClientes.filter(c => c.id !== id));
-        alert("✅ Cliente eliminado por completo (perfil y acceso a la plataforma).");
+        await fetchClientes();
+        alert(result.datosConservados
+          ? "✅ Acceso eliminado. Los archivos e historial del cliente se conservaron."
+          : "✅ Solicitud rechazada y registro eliminado.");
       } catch (error) {
         alert("Error al eliminar: " + error.message);
       }
@@ -140,7 +182,7 @@ const Clientes = ({ session }) => {
   };
 
   // --- LÓGICA DE FILTRADO Y BÚSQUEDA ---
-  const clientesFiltrados = clientes.filter(c => {
+  const clientesFiltrados = clientesVigentes.filter(c => {
     const aprobado = c.is_approved === true;
     const cumpleTab = tab === 'pendientes' ? !aprobado : aprobado;
     
@@ -278,10 +320,10 @@ const Clientes = ({ session }) => {
 
       <div style={styles.tabContainer}>
         <button style={styles.tab(tab === 'pendientes')} onClick={() => { setTab('pendientes'); setPaginaActual(1); }}>
-          Solicitudes ({clientes.filter(c => !c.is_approved).length})
+          Solicitudes ({clientesVigentes.filter(c => !c.is_approved).length})
         </button>
         <button style={styles.tab(tab === 'activos')} onClick={() => { setTab('activos'); setPaginaActual(1); }}>
-          Clientes Activos ({clientes.filter(c => c.is_approved).length})
+          Clientes Activos ({clientesVigentes.filter(c => c.is_approved).length})
         </button>
       </div>
 
@@ -293,7 +335,7 @@ const Clientes = ({ session }) => {
               <th style={styles.th}>Email</th>
               <th style={styles.th}>Créditos</th>
               <th style={styles.th}>País / RUT</th>
-              <th style={styles.th}>Acciones</th>
+              {mostrarAcciones && <th style={styles.th}>Acciones</th>}
             </tr>
           </thead>
           <tbody>
@@ -320,22 +362,24 @@ const Clientes = ({ session }) => {
                   <div>{c.country}</div>
                   <div style={{ fontSize: '10px', color: darkMode ? '#64748b' : '#999' }}>{c.rut}</div>
                 </td>
-                <td style={styles.td}>
-                  {tab === 'pendientes' ? (
-                    <>
-                      <button style={styles.btnApprove} onClick={() => handleAprobar(c.id, c.email)}>APROBAR</button>
-                      <button style={styles.btnReject} onClick={() => handleEliminar(c.id)}>RECHAZAR</button>
-                    </>
-                  ) : (
-                    <>
-                      <button style={styles.btnReject} onClick={() => handleEliminar(c.id)}>ELIMINAR</button>
-                    </>
-                  )}
-                </td>
+                {mostrarAcciones && (
+                  <td style={styles.td}>
+                    {tab === 'pendientes' ? (
+                      <>
+                        <button style={styles.btnApprove} onClick={() => handleAprobar(c.id, c.email)}>APROBAR</button>
+                        <button style={styles.btnReject} onClick={() => handleEliminar(c.id)}>RECHAZAR</button>
+                      </>
+                    ) : (
+                      <>
+                        <button style={styles.btnReject} onClick={() => handleEliminar(c.id)}>ELIMINAR</button>
+                      </>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
-            {loading && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: darkMode ? '#94a3b8' : '#666' }}>Cargando datos...</td></tr>}
-            {!loading && clientesPaginados.length === 0 && <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: darkMode ? '#64748b' : '#999' }}>No se encontraron resultados.</td></tr>}
+            {loading && <tr><td colSpan={mostrarAcciones ? 5 : 4} style={{ textAlign: 'center', padding: '20px', color: darkMode ? '#94a3b8' : '#666' }}>Cargando datos...</td></tr>}
+            {!loading && clientesPaginados.length === 0 && <tr><td colSpan={mostrarAcciones ? 5 : 4} style={{ textAlign: 'center', padding: '20px', color: darkMode ? '#64748b' : '#999' }}>No se encontraron resultados.</td></tr>}
           </tbody>
         </table>
 
